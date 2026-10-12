@@ -355,7 +355,7 @@ python -m unittest discover -s tests -t .
 | `usage_monitor/hooks/` | Claude Code가 실행하는 스크립트 원본 |
 | `usage_monitor/web/` | 화면 파일. 수신기가 요청마다 읽습니다 |
 | `packaging/` | 실행 파일(PyInstaller)과 인스톨러(Inno Setup) 빌드 설정, 빌드 동작 확인 스크립트 |
-| `.github/workflows/build.yml` | 테스트 → 실행 파일 → 동작 확인 → 인스톨러. `v*` 태그를 푸시하면 릴리스에 올립니다 |
+| `.github/workflows/build.yml` | 테스트 → 실행 파일 → 동작 확인 → 인스톨러. 수동 실행과 `v*` 태그 푸시에서만 돕니다. 태그 빌드는 릴리스에 올립니다 |
 | `scripts/` | 개발용 도구 |
 
 화면 파일은 고친 뒤 페이지를 다시 열면 반영됩니다. 파이썬 코드를 고친 뒤에는 `quit` 후 `run`으로 다시 띄웁니다.

@@ -2,11 +2,11 @@ name: build
 
 # 테스트 → 실행 파일(PyInstaller) → 동작 확인 → 인스톨러(Inno Setup) → 산출물 업로드.
 # v* 태그를 푸시하면 GitHub 릴리스에도 올린다.
+# 브랜치 푸시에서는 돌지 않는다. 비공개 저장소라 러너 사용 시간이 계정 한도에서 빠진다.
+# 수동 실행: gh workflow run build.yml  (또는 Actions 탭의 Run workflow)
 on:
   push:
-    branches: [main]
     tags: ["v*"]
-  pull_request:
   workflow_dispatch:
 
 permissions:
