@@ -102,6 +102,20 @@ class ConnectTest(unittest.TestCase):
         self.assertTrue(cmd.startswith('"C:/Program Files/Python312/python.exe" -S -I "'))
         self.assertNotIn("\\", cmd)
 
+    def test_exe_mode_registers_hook_exe_and_disconnect_removes_it(self):
+        self.write({"theme": "dark"})
+        exe = r"C:\Users\someone\AppData\Local\Programs\UsageMonitor\um-hook.exe"
+        c.connect(self.paths, python=PY, hook_exe=exe)
+        s = self.read()
+        self.assertEqual(s["statusLine"]["command"],
+                         '"C:/Users/someone/AppData/Local/Programs/UsageMonitor/um-hook.exe" statusline')
+        self.assertTrue(s["hooks"]["Stop"][0]["hooks"][0]["command"].endswith('um-hook.exe" stop'))
+        self.assertTrue(s["hooks"]["PostToolUse"][0]["hooks"][0]["command"].endswith('um-hook.exe" post'))
+        self.assertFalse(self.paths["hooks_dir"].exists())                  # 스크립트는 복사하지 않는다
+        self.assertEqual(c.status(self.paths)["statusline"], "ours")
+        c.disconnect(self.paths)
+        self.assertEqual(self.read(), {"theme": "dark"})
+
     def test_missing_settings_file(self):
         c.connect(self.paths, python=PY)
         self.assertEqual(c.status(self.paths)["otel"], "ours")

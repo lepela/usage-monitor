@@ -6,7 +6,10 @@ get_usage 결과의 plan과 컨텍스트 %를 스풀에 한 줄로 남긴다. co
 import json
 import time
 
-import usage_hook_common as c
+try:                                   # 실행 파일(um-hook.exe) 안에서는 패키지 모듈로 불린다
+    from . import usage_hook_common as c
+except ImportError:                    # Python 스크립트로 직접 실행될 때
+    import usage_hook_common as c
 
 
 def parse_payload(resp):

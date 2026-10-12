@@ -9,6 +9,8 @@ NAME = "UsageMonitor"
 
 def command():
     """콘솔 없는 pythonw로 트레이 프로그램을 띄우는 명령."""
+    if getattr(sys, "frozen", False):                      # 실행 파일로 설치됐을 때
+        return f'"{Path(sys.executable).with_name("UsageMonitor.exe")}" run'
     pythonw = Path(sys.executable).with_name("pythonw.exe")
     return f'"{pythonw}" -m usage_monitor run'
 

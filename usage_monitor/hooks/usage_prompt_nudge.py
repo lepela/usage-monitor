@@ -5,7 +5,10 @@ Desktop 세션에서 관측할 때가 됐으면(간격은 마지막 사용률로
 """
 import time
 
-import usage_hook_common as c
+try:                                   # 실행 파일(um-hook.exe) 안에서는 패키지 모듈로 불린다
+    from . import usage_hook_common as c
+except ImportError:                    # Python 스크립트로 직접 실행될 때
+    import usage_hook_common as c
 
 
 def main():

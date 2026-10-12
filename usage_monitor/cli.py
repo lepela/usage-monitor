@@ -31,8 +31,11 @@ def _print_report(title, report):
 
 def _start_detached():
     """콘솔 없는 pythonw로 트레이 프로그램을 띄우고 바로 돌아온다."""
-    pythonw = Path(sys.executable).with_name("pythonw.exe")
-    subprocess.Popen([str(pythonw), "-m", "usage_monitor", "run"],
+    if getattr(sys, "frozen", False):                      # 실행 파일로 설치됐을 때는 창 없는 쪽 실행 파일
+        args = [str(Path(sys.executable).with_name("UsageMonitor.exe")), "run"]
+    else:
+        args = [str(Path(sys.executable).with_name("pythonw.exe")), "-m", "usage_monitor", "run"]
+    subprocess.Popen(args,
                      creationflags=0x00000008 | 0x00000200, close_fds=True)   # DETACHED_PROCESS | NEW_PROCESS_GROUP
 
 
@@ -52,12 +55,18 @@ def cmd_setup():
 
 def cmd_uninstall():
     from . import autostart, config, connect, tray
-    print("프로그램:", "종료를 알림" if tray.request_quit() else "떠 있지 않음")
+    asked = tray.request_quit()
+    for _ in range(20):                    # 끝날 때까지 최대 10초 기다린다. 인스톨러가 바로 뒤에 파일을 지운다
+        if not tray.is_running():
+            break
+        time.sleep(0.5)
+    print("프로그램:", "종료함" if asked else "떠 있지 않음")
     autostart.disable()
     print("로그인 시 자동 실행: 끔")
     _print_report("Claude Code 연결 해제", connect.disconnect())
     print(f"기록(DB·스풀·백업)은 {config.default_home()} 에 남겨 두었습니다. 필요 없으면 폴더를 지웁니다.")
-    print("패키지 삭제: pip uninstall usage-monitor")
+    if not getattr(sys, "frozen", False):
+        print("패키지 삭제: pip uninstall usage-monitor")
 
 
 def cmd_status():

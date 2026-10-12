@@ -1,0 +1,84 @@
+name: build
+
+# 테스트 → 실행 파일(PyInstaller) → 동작 확인 → 인스톨러(Inno Setup) → 산출물 업로드.
+# v* 태그를 푸시하면 GitHub 릴리스에도 올린다.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m unittest discover -s tests -t .
+
+  package:
+    needs: test
+    runs-on: windows-latest
+    permissions:
+      contents: write        # 태그 빌드에서 릴리스를 만든다
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 의존성 설치
+        run: pip install . pyinstaller
+
+      - name: 버전 읽기
+        shell: pwsh
+        run: |
+          $v = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          "APP_VERSION=$v" >> $env:GITHUB_ENV
+
+      - name: 실행 파일 빌드
+        run: pyinstaller packaging/usage-monitor.spec --noconfirm
+
+      - name: 동작 확인
+        shell: pwsh
+        run: ./packaging/smoke-test.ps1 -Dist dist/UsageMonitor
+
+      - name: 인스톨러 빌드
+        shell: pwsh
+        run: |
+          $iscc = Get-Command iscc -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+          if (-not $iscc) { $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' }
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' }
+          & $iscc packaging\installer.iss "/DAppVersion=$env:APP_VERSION"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: 인스톨러 설치·제거 확인
+        shell: pwsh
+        run: ./packaging/smoke-test.ps1 -Installer "dist/UsageMonitor-$env:APP_VERSION-setup.exe"
+
+      - name: 폴더형 배포본 압축
+        shell: pwsh
+        run: Compress-Archive -Path dist/UsageMonitor -DestinationPath "dist/UsageMonitor-$env:APP_VERSION-portable.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: UsageMonitor-${{ env.APP_VERSION }}
+          path: |
+            dist/UsageMonitor-*-setup.exe
+            dist/UsageMonitor-*-portable.zip
+          if-no-files-found: error
+
+      - name: 릴리스에 올리기
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME "dist/UsageMonitor-$env:APP_VERSION-setup.exe" "dist/UsageMonitor-$env:APP_VERSION-portable.zip" --title "Usage Monitor $env:APP_VERSION" --generate-notes

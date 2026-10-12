@@ -1,0 +1,31 @@
+﻿Usage Monitor 가 이 PC에서 바꾸는 것 / What this installer changes
+
+"Claude Code 설정에 연결" 을 선택하면 다음을 합니다.
+
+1. %USERPROFILE%\.claude\settings.json 을 백업한 뒤 세 가지를 등록합니다.
+   - env        Claude Code의 OpenTelemetry 로그를 http://127.0.0.1:4318 로 보냅니다
+   - statusLine CLI 상태줄 명령 (이미 다른 statusLine 이 있으면 건드리지 않습니다)
+   - hooks      UserPromptSubmit · PostToolUse · Stop 에 이 프로그램의 hook 을 덧붙입니다
+   백업 위치: %USERPROFILE%\.claude\usage-monitor\backup\
+
+2. 로그인 시 자동 실행을 등록합니다.
+   HKCU\Software\Microsoft\Windows\CurrentVersion\Run 의 UsageMonitor 값
+
+3. 트레이 프로그램을 시작합니다. 수신기는 127.0.0.1:4318 에만 열립니다.
+
+Desktop 앱 세션에서는 한도 값을 받기 위해 모델이 get_usage 도구를 가끔 호출합니다.
+이 호출은 토큰을 조금 씁니다. 자세한 내용과 끄는 방법은 README 에 있습니다.
+
+이 프로그램은 Anthropic 서버에 접속하지 않고 Claude 계정에 로그인하지 않습니다.
+수집한 데이터는 이 PC의 %USERPROFILE%\.claude\usage-monitor\ 에만 저장하고 밖으로 보내지 않습니다.
+
+제거하면 위 항목을 되돌립니다. 기록(DB)은 남겨 두므로 필요 없으면 폴더를 지웁니다.
+
+----------------------------------------------------------------------
+
+If you select "Connect to Claude Code settings", the installer backs up and edits
+%USERPROFILE%\.claude\settings.json (OpenTelemetry env, statusLine, three hooks),
+adds a per-user Run entry to start at sign-in, and starts the tray program.
+The receiver listens on 127.0.0.1:4318 only. In Desktop sessions the model
+occasionally calls the get_usage tool to read rate limits, which uses a small
+number of tokens. No data leaves this PC. Uninstalling reverts these changes.

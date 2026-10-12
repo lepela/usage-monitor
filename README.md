@@ -28,6 +28,7 @@ Anthropic이 만들거나 보증한 프로그램이 아닙니다. Claude와 Clau
 - [제한 사항](#제한-사항)
 - [문제 해결](#문제-해결)
 - [개발](#개발)
+- [코드 서명 정책](#코드-서명-정책)
 - [라이선스](#라이선스)
 
 ## 무엇을 보여 주는가
@@ -70,14 +71,29 @@ Desktop 앱은 상태줄 스크립트를 실행하지 않습니다. 그래서 De
 ## 요구 사항
 
 - Windows 11
-- Python 3.11 이상. [python.org](https://www.python.org/downloads/windows/) 설치본을 권합니다
 - Claude Code (CLI 또는 Desktop 앱), 개인 Pro/Max 구독
 - WebView2 런타임 — 위젯 창이 씁니다. Windows 11에 기본으로 들어 있습니다
 - Chrome 또는 Edge — 키오스크 화면을 쓸 때만
-
-실행 파일(exe)이나 인스톨러는 제공하지 않습니다. 서명 없는 실행 파일은 Smart App Control이 켜진 PC에서 실행되지 않습니다. 그래서 서명된 Python으로 돌리는 패키지로 배포합니다.
+- Python 3.11 이상 — pip으로 설치할 때만. [python.org](https://www.python.org/downloads/windows/) 설치본을 권합니다
 
 ## 설치
+
+방법은 둘입니다. 어느 쪽이든 설치 뒤에 **새로 여는** Claude Code 세션부터 사용량이 들어옵니다. 설치 전에 열려 있던 세션은 텔레메트리를 보내지 않습니다.
+
+### 인스톨러
+
+[Releases](https://github.com/lepela/usage-monitor/releases)에서 `UsageMonitor-<버전>-setup.exe`를 받아 실행합니다. Python이 필요 없습니다.
+현재 사용자 폴더(`%LOCALAPPDATA%\Programs\UsageMonitor`)에 설치하고 관리자 권한을 쓰지 않습니다.
+설치 화면에서 "Claude Code 설정에 연결"을 고르면 연결, 자동 실행 등록, 프로그램 시작까지 합니다.
+
+실행 파일은 아직 코드 서명이 없습니다([코드 서명 정책](#코드-서명-정책)). 서명 전까지는 다음과 같습니다.
+
+- Windows가 "PC 보호" 경고를 띄웁니다. "추가 정보 → 실행"으로 진행합니다
+- Smart App Control이 켜진 PC에서는 실행되지 않습니다. 이 경우 아래 pip 방법을 씁니다
+
+설치 없이 써 보려면 같은 곳의 `UsageMonitor-<버전>-portable.zip`을 풀고 `usage-monitor.exe setup`을 실행합니다.
+
+### pip
 
 ```bash
 pip install git+https://github.com/lepela/usage-monitor.git
@@ -88,7 +104,7 @@ python -m usage_monitor setup
 ```
 
 `setup`은 Claude Code 설정에 연결하고, 로그인 시 자동 실행을 켜고, 트레이 프로그램을 띄웁니다.
-그 뒤에 **새로 여는** Claude Code 세션부터 사용량이 들어옵니다. `setup` 전에 열려 있던 세션은 텔레메트리를 보내지 않습니다.
+서명된 Python으로 돌기 때문에 Smart App Control이 켜진 PC에서도 동작합니다.
 
 ## setup이 바꾸는 것
 
@@ -118,7 +134,8 @@ python -m usage_monitor setup
 - 이미 다른 `statusLine`이 있으면 그대로 두고 알려 줍니다. 이 경우 CLI 세션의 한도 관측은 들어오지 않습니다
 - OTel 로그를 이미 다른 곳으로 보내고 있으면 `env`를 건드리지 않고 알려 줍니다. 이 경우 토큰·비용은 수집되지 않습니다
 - 다른 hook은 그대로 두고 이 프로그램의 항목만 덧붙입니다
-- hook 스크립트는 `~/.claude/usage-monitor/hooks/`에 복사해 두고 설정에는 그 경로를 적습니다. 패키지를 지워도 Claude Code 설정이 깨지지 않습니다
+- pip으로 설치했을 때: hook 스크립트를 `~/.claude/usage-monitor/hooks/`에 복사해 두고 설정에는 그 경로를 적습니다. 패키지를 지워도 Claude Code 설정이 깨지지 않습니다
+- 인스톨러로 설치했을 때: 설치 폴더의 `um-hook.exe`를 적습니다. 위 예시의 명령 자리에 `"<설치 폴더>/um-hook.exe" statusline` 같은 값이 들어갑니다
 
 그 밖에 바꾸는 것은 로그인 시 자동 실행 항목 하나입니다(`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`의 `UsageMonitor`). 관리자 권한은 쓰지 않습니다.
 
@@ -244,7 +261,8 @@ Claude Code의 텔레메트리에는 이메일과 계정 ID가 붙어 옵니다.
 
 ## 명령
 
-`python -m usage_monitor <명령>` 형식입니다. 설치하면 `usage-monitor <명령>`으로도 됩니다.
+pip으로 설치했으면 `python -m usage_monitor <명령>` 또는 `usage-monitor <명령>`입니다.
+인스톨러로 설치했으면 설치 폴더의 `usage-monitor.exe <명령>`입니다.
 
 | 명령 | 동작 |
 |---|---|
@@ -273,6 +291,10 @@ Claude Code의 텔레메트리에는 이메일과 계정 ID가 붙어 옵니다.
 포트를 바꿨으면 `python -m usage_monitor connect`를 다시 실행해 Claude Code 설정의 주소를 맞춥니다.
 
 ## 제거
+
+인스톨러로 설치했으면 Windows 설정의 "설치된 앱"에서 Usage Monitor를 제거합니다. 제거 과정에서 아래 `uninstall`이 자동으로 실행됩니다.
+
+pip으로 설치했으면 다음 순서로 합니다.
 
 ```bash
 python -m usage_monitor uninstall
@@ -332,6 +354,8 @@ python -m unittest discover -s tests -t .
 | `usage_monitor/connect.py` | `settings.json` 연결·해제 |
 | `usage_monitor/hooks/` | Claude Code가 실행하는 스크립트 원본 |
 | `usage_monitor/web/` | 화면 파일. 수신기가 요청마다 읽습니다 |
+| `packaging/` | 실행 파일(PyInstaller)과 인스톨러(Inno Setup) 빌드 설정, 빌드 동작 확인 스크립트 |
+| `.github/workflows/build.yml` | 테스트 → 실행 파일 → 동작 확인 → 인스톨러. `v*` 태그를 푸시하면 릴리스에 올립니다 |
 | `scripts/` | 개발용 도구 |
 
 화면 파일은 고친 뒤 페이지를 다시 열면 반영됩니다. 파이썬 코드를 고친 뒤에는 `quit` 후 `run`으로 다시 띄웁니다.
@@ -346,6 +370,21 @@ set USAGE_MONITOR_HOME=%TEMP%\usage-monitor-fake&& set USAGE_MONITOR_PORT=4319&&
 ```bash
 python scripts/fake_feed.py --url http://127.0.0.1:4319 --home %TEMP%\usage-monitor-fake
 ```
+
+## 코드 서명 정책
+
+배포하는 실행 파일과 인스톨러는 이 저장소의 소스에서 GitHub Actions(`.github/workflows/build.yml`)로만 만듭니다. 손으로 만든 실행 파일은 배포하지 않습니다.
+
+현재 상태: **서명 없음.** 오픈소스 프로젝트용 무료 코드 서명을 [SignPath Foundation](https://signpath.org/)에 신청할 예정입니다. 승인되면 이 절에 서명 제공자를 적고 릴리스를 서명본으로 바꿉니다.
+
+| 역할 | 담당 |
+|---|---|
+| 커밋·리뷰 | [lepela](https://github.com/lepela) |
+| 릴리스 승인 | [lepela](https://github.com/lepela) |
+
+개인 정보: 이 프로그램은 사용자나 설치·운영하는 사람이 명시적으로 요청하지 않는 한 어떤 정보도 다른 네트워크 시스템으로 보내지 않습니다. 수집 범위는 [저장하는 것과 저장하지 않는 것](#저장하는-것과-저장하지-않는-것)에 있습니다.
+
+*This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.*
 
 ## 라이선스
 

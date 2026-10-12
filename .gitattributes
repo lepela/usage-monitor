@@ -1,0 +1,5 @@
+# 인코딩이 정해진 파일은 줄바꿈·바이트를 그대로 둔다
+*.iss text eol=crlf
+packaging/install-notice.txt text eol=crlf
+*.ps1 text eol=crlf
+*.png binary

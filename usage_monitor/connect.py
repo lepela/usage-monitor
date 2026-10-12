@@ -24,7 +24,10 @@ import sys
 import time
 from pathlib import Path
 
-MARKER = "usage-monitor/hooks/"          # 우리 명령에만 들어 있는 경로 조각
+MARKER = "usage-monitor/hooks/"          # 우리 명령에만 들어 있는 경로 조각 (Python 스크립트 방식)
+HOOK_EXE = "um-hook.exe"                 # 실행 파일 방식. 이 이름도 우리 명령으로 본다
+FROZEN = getattr(sys, "frozen", False)   # PyInstaller로 묶인 실행 파일 안인지
+EXE_ARGS = {"usage_prompt_nudge.py": "nudge", "usage_post_tool.py": "post", "usage_stop_guard.py": "stop"}
 HOOK_FILES = ("statusline.py", "usage_hook_common.py", "usage_prompt_nudge.py",
               "usage_post_tool.py", "usage_stop_guard.py")
 TOOL_MATCHER = "mcp__ccd_session_mgmt__get_usage"
@@ -48,9 +51,18 @@ def _cmd(python, script, flags):
     return f'{exe} {flags} "{Path(script).as_posix()}"'
 
 
-def desired(hooks_dir, python, port=4318, host=None):
-    """등록할 값. hooks_dir은 반드시 MARKER로 끝나는 경로다."""
-    hook = lambda name: {"type": "command", "command": _cmd(python, hooks_dir / name, "-S"), "timeout": 10}
+def _exe_cmd(exe, arg):
+    return f'"{Path(exe).as_posix()}" {arg}'
+
+
+def desired(hooks_dir, python, port=4318, host=None, hook_exe=None):
+    """등록할 값. hook_exe가 있으면 실행 파일 방식, 없으면 hooks_dir의 스크립트를 python으로 돌린다."""
+    if hook_exe:
+        hook = lambda name: {"type": "command", "command": _exe_cmd(hook_exe, EXE_ARGS[name]), "timeout": 10}
+        statusline = _exe_cmd(hook_exe, "statusline")
+    else:
+        hook = lambda name: {"type": "command", "command": _cmd(python, hooks_dir / name, "-S"), "timeout": 10}
+        statusline = _cmd(python, hooks_dir / "statusline.py", "-S -I")
     return {
         "env": {
             "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
@@ -60,7 +72,7 @@ def desired(hooks_dir, python, port=4318, host=None):
             "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT": f"http://127.0.0.1:{port}/v1/logs",
             "OTEL_RESOURCE_ATTRIBUTES": f"host.name={host or os.environ.get('COMPUTERNAME') or socket.gethostname()}",
         },
-        "statusLine": {"type": "command", "command": _cmd(python, hooks_dir / "statusline.py", "-S -I")},
+        "statusLine": {"type": "command", "command": statusline},
         "hooks": {
             "UserPromptSubmit": {"hooks": [hook("usage_prompt_nudge.py")]},
             "PostToolUse": {"matcher": TOOL_MATCHER, "hooks": [hook("usage_post_tool.py")]},
@@ -69,12 +81,21 @@ def desired(hooks_dir, python, port=4318, host=None):
     }
 
 
+def _ours(command):
+    return MARKER in (command or "") or HOOK_EXE in (command or "")
+
+
 def _is_ours(entry):
-    return any(MARKER in (h.get("command") or "") for h in entry.get("hooks") or [])
+    return any(_ours(h.get("command")) for h in entry.get("hooks") or [])
 
 
 def _statusline_is_ours(settings):
-    return MARKER in ((settings.get("statusLine") or {}).get("command") or "")
+    return _ours((settings.get("statusLine") or {}).get("command"))
+
+
+def default_hook_exe():
+    """실행 파일로 설치됐을 때 um-hook.exe 의 위치. 아니면 None."""
+    return Path(sys.executable).with_name(HOOK_EXE) if FROZEN else None
 
 
 def _load(path):
@@ -110,25 +131,30 @@ def status(paths=None):
                 else ("other" if endpoint or env.get("OTEL_LOGS_EXPORTER") else "none"),
         "statusline": "ours" if _statusline_is_ours(s) else ("other" if s.get("statusLine") else "none"),
         "hooks": sorted(ev for ev, entries in hooks.items() if any(_is_ours(e) for e in entries or [])),
-        "scripts": all((paths["hooks_dir"] / f).exists() for f in HOOK_FILES),
+        "scripts": default_hook_exe().exists() if FROZEN
+                   else all((paths["hooks_dir"] / f).exists() for f in HOOK_FILES),
     }
 
 
-def connect(paths=None, python=None, port=4318, source_hooks=SOURCE_HOOKS):
+def connect(paths=None, python=None, port=4318, source_hooks=SOURCE_HOOKS, hook_exe=None):
     """등록하고, 무엇을 했고 무엇을 건너뛰었는지 돌려준다."""
     paths = paths or default_paths()
     python = python or sys.executable.replace("pythonw.exe", "python.exe")
+    hook_exe = hook_exe or default_hook_exe()
     report = {"backup": None, "done": [], "skipped": []}
 
-    paths["hooks_dir"].mkdir(parents=True, exist_ok=True)
-    for name in HOOK_FILES:
-        shutil.copy2(source_hooks / name, paths["hooks_dir"] / name)
-    report["done"].append(f"스크립트 복사 → {paths['hooks_dir']}")
+    if hook_exe:
+        report["done"].append(f"hook 실행 파일 → {hook_exe}")
+    else:
+        paths["hooks_dir"].mkdir(parents=True, exist_ok=True)
+        for name in HOOK_FILES:
+            shutil.copy2(source_hooks / name, paths["hooks_dir"] / name)
+        report["done"].append(f"스크립트 복사 → {paths['hooks_dir']}")
 
     s = _load(paths["settings"])
     backup = _backup(paths)
     report["backup"] = str(backup) if backup else None
-    want = desired(paths["hooks_dir"], python, port)
+    want = desired(paths["hooks_dir"], python, port, hook_exe=hook_exe)
     manifest = {"env": {}, "statusLine": False}
 
     env = s.setdefault("env", {})
