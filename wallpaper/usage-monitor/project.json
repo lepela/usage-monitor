@@ -1,0 +1,18 @@
+{
+	"description": "Claude Code 사용량·한도 대시보드. 같은 PC에서 usage-monitor 수신기(127.0.0.1:4318)가 돌고 있어야 한다.",
+	"file": "index.html",
+	"general": {
+		"properties": {
+			"receiverurl": {
+				"order": 100,
+				"text": "수신기 주소",
+				"type": "textinput",
+				"value": "http://127.0.0.1:4318"
+			}
+		}
+	},
+	"tags": ["Unspecified"],
+	"title": "Claude Code Usage Monitor",
+	"type": "web",
+	"visibility": "private"
+}

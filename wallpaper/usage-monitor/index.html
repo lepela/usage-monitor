@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Claude Code Usage Monitor</title>
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #1a1a19; }
+  iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: none; }
+  #wait {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #898781; font: 2.2vmin system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
+  }
+</style>
+</head>
+<body>
+<!-- Wallpaper Engine 웹 배경화면 껍데기. 화면 자체는 usage-monitor 수신기가 내주는 /web/wall.html 이다.
+     수신기가 응답할 때까지 5초마다 확인하고, 응답하면 iframe 으로 불러온다.
+     불러온 뒤의 재연결(SSE)은 안쪽 페이지가 스스로 한다. -->
+<div id="wait">usage-monitor 수신기 대기 중</div>
+<iframe id="frame" title="usage-monitor"></iframe>
+<script>
+  let base = 'http://127.0.0.1:4318';
+  let timer = null;
+  const frame = document.getElementById('frame');
+  const wait = document.getElementById('wait');
+
+  function probe() {
+    clearTimeout(timer);
+    // no-cors: 응답 내용은 읽지 못하지만 서버가 살아 있는지는 알 수 있다. 수신기에 CORS 설정이 필요 없다
+    fetch(base + '/api/snapshot', { mode: 'no-cors', cache: 'no-store' })
+      .then(() => {
+        frame.src = base + '/web/wall.html';
+        frame.style.display = 'block';
+        wait.style.display = 'none';
+      })
+      .catch(() => {
+        wait.textContent = 'usage-monitor 수신기 대기 중 · ' + base;
+        timer = setTimeout(probe, 5000);
+      });
+  }
+
+  // Wallpaper Engine 사용자 속성: 수신기 주소
+  window.wallpaperPropertyListener = {
+    applyUserProperties(props) {
+      if (props.receiverurl && props.receiverurl.value) {
+        const next = props.receiverurl.value.trim().replace(/\/+$/, '');
+        if (next !== base) {
+          base = next;
+          frame.style.display = 'none';
+          wait.style.display = 'flex';
+          probe();
+        }
+      }
+    },
+  };
+
+  probe();
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+/* 키오스크(style.css)와 배경화면(wall.css)이 함께 쓰는 색. dataviz 기준 팔레트의 다크 단계(검증 통과) */
+:root {
+  color-scheme: dark;
+  --surface: #1a1a19;
+  --text-1: #e8e7e1;          /* 순백 회피 */
+  --text-2: #c3c2b7;
+  --text-3: #898781;
+  --grid: #2c2c2a;
+  --track: #2c2c2a;
+  --baseline: #383835;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --critical: #d03b3b;
+  --idle-dot: #5f5e5a;
+  --s-input: #3987e5;
+  --s-output: #d95926;
+  --s-cache-read: #199e70;
+  --s-cache-creation: #c98500;
+  --flash: rgba(232, 231, 225, 0.12);
+}

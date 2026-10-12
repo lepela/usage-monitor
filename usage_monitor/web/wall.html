@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Usage Monitor · Wallpaper</title>
+<link rel="stylesheet" href="/web/tokens.css">
+<link rel="stylesheet" href="/web/wall.css">
+</head>
+<!-- 배경화면용. 기준 1920×1080, 화면 비율에 따라 배치가 바뀐다. 요소 id는 index.html과 같고 app.js를 함께 쓴다 -->
+<body class="idle">
+<div class="offline"><span class="icon-alert"></span><span id="offline-text">수집기 연결 끊김</span></div>
+<div class="stage" id="stage">
+
+  <section class="limits">
+    <div class="limit" id="lim-5h">
+      <div class="limit-head"><span class="label">5시간 한도</span><span class="muted reset"></span></div>
+      <div class="limit-body">
+        <div class="pct">—</div>
+        <div class="eta"><div class="eta-main"></div><div class="eta-sub method"></div><div class="eta-sub obs"></div></div>
+      </div>
+      <div class="bar"><div></div></div>
+    </div>
+    <div class="limit" id="lim-7d">
+      <div class="limit-head"><span class="label">7일 한도</span><span class="muted reset"></span></div>
+      <div class="limit-body">
+        <div class="pct">—</div>
+        <div class="eta"><div class="eta-main"></div><div class="eta-sub method"></div><div class="eta-sub obs"></div></div>
+      </div>
+      <div class="bar"><div></div></div>
+    </div>
+    <div class="hits" id="hits"></div>
+  </section>
+
+  <section class="center">
+    <div class="burn-view">
+      <div class="center-head"><span class="label">최근 60분 · 분당 토큰</span><span class="muted" id="burn-total"></span></div>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="key"><i style="background:var(--s-cache-read)"></i>캐시 읽기</span>
+          <span class="key"><i style="background:var(--s-cache-creation)"></i>캐시 쓰기</span>
+        </div>
+        <svg class="chart" id="chart-cache"></svg>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="key"><i style="background:var(--s-input)"></i>입력</span>
+          <span class="key"><i style="background:var(--s-output)"></i>출력</span>
+        </div>
+        <svg class="chart" id="chart-io"></svg>
+      </div>
+      <div class="axis tnum" id="axis"></div>
+    </div>
+    <div class="idle-view">
+      <div class="label">유휴</div>
+      <div class="idle-last" id="idle-last">—</div>
+      <div class="tiles">
+        <div class="tile"><span class="label">5시간 리셋까지</span><span class="v" id="idle-r5">—</span><span class="muted" id="idle-r5-at"></span></div>
+        <div class="tile"><span class="label">7일 리셋까지</span><span class="v" id="idle-r7">—</span><span class="muted" id="idle-r7-at"></span></div>
+        <div class="tile"><span class="label">오늘 누계</span><span class="v" id="idle-today">—</span><span class="muted" id="idle-today-sub"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="side">
+    <div class="session">
+      <span class="label" id="sess-label">현재 세션</span>
+      <div class="model" id="model">—</div>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="label">컨텍스트</span><div class="v" id="ctx">—</div></div>
+      <div class="stat"><span class="label">캐시 적중</span><div class="v" id="cache">—</div></div>
+      <div class="stat"><span class="label">오늘 추정 비용</span><div class="v" id="cost">—</div></div>
+      <div class="stat"><span class="label">오늘 요청</span><div class="v" id="reqs">—</div></div>
+    </div>
+    <div class="status">
+      <div class="muted" id="extra-windows"></div>
+      <div class="health" id="health"></div>
+    </div>
+  </section>
+
+</div>
+<script src="/web/app.js"></script>
+</body>
+</html>

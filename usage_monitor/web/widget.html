@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Usage Monitor · Widget</title>
+<link rel="stylesheet" href="/web/tokens.css">
+<link rel="stylesheet" href="/web/widget.css">
+</head>
+<!-- 바탕화면 위젯용. 구성은 body의 data-size(s | m | l)로 바꾼다. 주소의 ?size= 로도 정한다.
+     요소 id는 index.html과 같고 app.js를 함께 쓴다. 작은 구성에서 안 쓰는 요소는 CSS로 숨긴다 -->
+<body class="idle" data-size="m">
+<div class="stage" id="stage">
+
+  <div class="controls" id="controls">
+    <button id="btn-size" title="구성 바꾸기">◱</button>
+    <button id="btn-close" title="닫기">×</button>
+  </div>
+  <div class="offline"><span class="icon-alert"></span><span id="offline-text">수집기 연결 끊김</span></div>
+
+  <section class="limits">
+    <div class="limit" id="lim-5h">
+      <div class="limit-head"><span class="label">5시간</span><span class="muted reset"></span></div>
+      <div class="limit-body">
+        <div class="pct">—</div>
+        <div class="eta"><div class="eta-main"></div><div class="eta-sub method"></div><div class="eta-sub obs"></div></div>
+      </div>
+      <div class="bar"><div></div></div>
+    </div>
+    <div class="limit" id="lim-7d">
+      <div class="limit-head"><span class="label">7일</span><span class="muted reset"></span></div>
+      <div class="limit-body">
+        <div class="pct">—</div>
+        <div class="eta"><div class="eta-main"></div><div class="eta-sub method"></div><div class="eta-sub obs"></div></div>
+      </div>
+      <div class="bar"><div></div></div>
+    </div>
+    <div class="hits" id="hits"></div>
+  </section>
+
+  <section class="center">
+    <div class="burn-view">
+      <div class="center-head"><span class="label">최근 60분 토큰</span><span class="muted" id="burn-total"></span></div>
+      <div class="keys">
+        <span class="key"><i style="background:var(--s-cache-read)"></i>캐시 읽기</span>
+        <span class="key"><i style="background:var(--s-cache-creation)"></i>캐시 쓰기</span>
+        <span class="key"><i style="background:var(--s-input)"></i>입력</span>
+        <span class="key"><i style="background:var(--s-output)"></i>출력</span>
+      </div>
+      <svg class="chart" id="chart-cache"></svg>
+      <svg class="chart" id="chart-io"></svg>
+      <div class="axis tnum" id="axis"></div>
+    </div>
+    <div class="idle-view">
+      <div class="idle-last muted" id="idle-last">—</div>
+      <span hidden id="idle-r5"></span><span hidden id="idle-r5-at"></span>
+      <span hidden id="idle-r7"></span><span hidden id="idle-r7-at"></span>
+      <span hidden id="idle-today"></span><span hidden id="idle-today-sub"></span>
+    </div>
+  </section>
+
+  <section class="side">
+    <div class="session">
+      <span class="label" id="sess-label">현재 세션</span>
+      <span class="model" id="model">—</span>
+      <span class="chips" id="chips"></span>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="label">컨텍스트</span><span class="v" id="ctx">—</span></div>
+      <div class="stat"><span class="label">캐시</span><span class="v" id="cache">—</span></div>
+      <div class="stat"><span class="label">오늘</span><span class="v" id="cost">—</span></div>
+      <div class="stat"><span class="label">요청</span><span class="v" id="reqs">—</span></div>
+    </div>
+    <div class="muted" id="extra-windows"></div>
+    <div class="health" id="health"></div>
+  </section>
+
+</div>
+<script src="/web/app.js"></script>
+<script src="/web/widget.js"></script>
+</body>
+</html>

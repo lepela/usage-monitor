@@ -1,0 +1,116 @@
+/* 바탕화면 위젯. 폭 300px 고정, 높이는 구성(data-size)에 따라 다르다. 치수는 widget.js의 SIZES와 맞춘다.
+     s (300×132) 한도 두 줄: %·막대·리셋
+     m (300×192) s + 소진 예상 문구 + 오늘 비용·요청 + 수집 상태 점
+     l (300×412) m + 최근 60분 토큰 차트 + 현재 세션(모델·컨텍스트·캐시) + 수집 상태 문구
+   가까이서 보는 화면이라 글자는 키오스크보다 작다(보조 12px, 본문 13~14px). */
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; width: 100%; height: 100%; overflow: hidden;
+  background: var(--surface); color: var(--text-1);
+  font-family: system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
+  font-size: 13px; line-height: 1.3; user-select: none; cursor: default;
+}
+.stage {
+  position: absolute; inset: 0; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  border: 1px solid var(--grid);
+  transition: filter 0.6s;
+}
+body.idle .stage { filter: brightness(0.75); }
+
+.label { color: var(--text-2); }
+.muted { color: var(--text-3); font-size: 12px; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ── 창 조작 버튼: 마우스를 올렸을 때만 ───── */
+.controls { position: absolute; top: 4px; right: 6px; display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; z-index: 6; }
+.stage:hover .controls { opacity: 1; }
+.controls button {
+  width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px;
+  background: var(--track); color: var(--text-2); font: 14px/1 system-ui; cursor: pointer;
+}
+.controls button:hover { background: var(--baseline); color: var(--text-1); }
+
+/* ── 한도 ───────────────────────────── */
+.limits { display: flex; flex-direction: column; gap: 8px; }
+.limit { display: flex; flex-direction: column; gap: 3px; }
+.limit-head { display: flex; justify-content: space-between; align-items: baseline; padding-right: 0; }
+.limit-body { display: flex; align-items: center; gap: 10px; }
+.pct { font-size: 34px; font-weight: 600; line-height: 1; min-width: 78px; border-radius: 4px; transition: background 0.8s; }
+.pct.flash { background: var(--flash); transition: none; }
+.pct small { font-size: 16px; font-weight: 500; color: var(--text-2); margin-left: 1px; }
+.eta { display: flex; flex-direction: column; min-width: 0; }
+.eta-main { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.eta-main.alert { font-weight: 700; }
+.eta-sub { color: var(--text-3); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar { height: 6px; background: var(--track); border-radius: 3px; overflow: hidden; }
+.bar > div { height: 100%; border-radius: 3px; width: 0; transition: width 0.6s; }
+.sev-good { background: var(--good); }
+.sev-warning { background: var(--warning); }
+.sev-critical { background: var(--critical); }
+.hits:empty { display: none; }
+.icon-alert { display: inline-block; width: 0.7em; height: 0.7em; border-radius: 0.15em; background: var(--critical); margin-right: 0.45em; }
+
+/* ── 차트 (l 구성만) ─────────────────── */
+.center { display: none; flex-direction: column; min-height: 0; }
+.burn-view { display: flex; flex-direction: column; }
+.center-head { display: flex; justify-content: space-between; align-items: baseline; }
+.keys { display: flex; gap: 8px; margin: 2px 0; }
+.key { display: inline-flex; align-items: center; gap: 4px; color: var(--text-3); font-size: 11px; }
+.key i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.chart { display: block; width: 100%; height: 50px; font-size: 11px; }
+.chart text { fill: var(--text-3); font-size: 11px; font-family: inherit; }
+.axis { display: flex; justify-content: space-between; color: var(--text-3); font-size: 11px; padding-right: 35px; }
+.idle-view { display: none; }
+body.idle .burn-view { display: none; }
+body.idle .idle-view { display: block; }
+
+/* ── 세션·오늘·수집 상태 ─────────────── */
+.side { display: none; flex-direction: column; gap: 4px; margin-top: auto; border-top: 1px solid var(--grid); padding-top: 6px; }
+.session { display: none; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; }
+.session .label { display: none; }
+.model { font-size: 14px; font-weight: 600; }
+.chips { color: var(--text-3); font-size: 12px; }
+.stats { display: flex; gap: 12px; align-items: baseline; }
+.stat { display: flex; gap: 5px; align-items: baseline; white-space: nowrap; }
+.stat .label { font-size: 12px; color: var(--text-3); }
+.stat .v { font-size: 14px; font-weight: 600; }
+#extra-windows { display: none; }
+.health { display: flex; gap: 4px; }
+.health div { font-size: 12px; color: var(--text-3); white-space: nowrap; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; background: var(--idle-dot); }
+.dot.live { background: var(--good); }
+.dot.recent { background: var(--warning); }
+.dot.missing { background: var(--critical); }
+
+/* ── 연결 끊김 ─────────────────────── */
+.offline {
+  display: none; position: absolute; left: 0; right: 0; bottom: 0; height: 22px;
+  background: #3a1514; color: var(--text-1); font-size: 12px;
+  align-items: center; justify-content: center; z-index: 5;
+}
+body.offline .offline { display: flex; }
+
+/* ── s: 한도만. %와 막대를 한 줄에 ─────────── */
+body[data-size="s"] .limit { display: grid; grid-template-columns: auto 1fr; grid-template-areas: "head head" "pct bar"; align-items: center; column-gap: 10px; row-gap: 2px; }
+body[data-size="s"] .limit-head { grid-area: head; }
+body[data-size="s"] .limit-body { grid-area: pct; }
+body[data-size="s"] .bar { grid-area: bar; }
+body[data-size="s"] .eta { display: none; }
+body[data-size="s"] .pct { font-size: 28px; min-width: 62px; }
+body[data-size="s"] .pct small { font-size: 14px; }
+
+/* ── m: + 소진 예상, 오늘 비용·요청, 상태 점 ───── */
+body[data-size="m"] .side, body[data-size="l"] .side { display: flex; }
+body[data-size="m"] .eta-sub.obs, body[data-size="l"] .eta-sub.obs { display: none; }   /* l은 아래 상태 문구에 시각이 있다 */
+body[data-size="m"] .side { flex-direction: row; justify-content: space-between; align-items: center; }
+body[data-size="m"] .stat:nth-child(-n+2) { display: none; }      /* 컨텍스트·캐시는 l에서만 */
+body[data-size="m"] .health div { font-size: 0; }                  /* 점만 남긴다. 문구는 l에서 */
+body[data-size="m"] .health .dot { margin-right: 0; }
+
+/* ── l: + 차트, 현재 세션, 상태 문구 ─────────── */
+body[data-size="l"] .center { display: flex; }
+body[data-size="l"] .session { display: flex; }
+body[data-size="l"] .health { flex-direction: column; gap: 0; }
+body[data-size="l"] .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; }

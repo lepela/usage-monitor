@@ -1,0 +1,14 @@
+# 로컬 전용 문서와 실측 기록 (공개 저장소에 올리지 않는다)
+BRIEF.md
+CLAUDE.md
+probe/
+.claude/
+
+__pycache__/
+*.db
+*.db-wal
+*.db-shm
+
+dist/
+build/
+*.egg-info/

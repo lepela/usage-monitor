@@ -1,0 +1,79 @@
+/* 1920×480 바 모니터 전용. 다크 고정, 무조작. 색 값은 dataviz 기준 팔레트의 다크 단계(검증 통과) */
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; width: 1920px; height: 480px; overflow: hidden;
+  background: var(--surface); color: var(--text-1);
+  font-family: system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
+  font-size: 20px; line-height: 1.25;
+}
+
+.stage {
+  position: absolute; inset: 0; padding: 16px;
+  display: grid; grid-template-columns: 420px 1fr 420px; gap: 16px;
+  transition: filter 0.6s;
+}
+body.idle .stage { filter: brightness(0.6); }
+
+.label { font-size: 22px; color: var(--text-2); }
+.muted { color: var(--text-3); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ── 좌: 한도 ───────────────────────────── */
+.limits { display: flex; flex-direction: column; justify-content: space-between; }
+.limit { display: flex; flex-direction: column; gap: 6px; }
+.limit-head { display: flex; justify-content: space-between; align-items: baseline; }
+.limit-body { display: flex; align-items: center; gap: 18px; }
+.pct { font-size: 84px; font-weight: 600; line-height: 1; min-width: 165px; border-radius: 6px; transition: background 0.8s; }
+.pct.flash { background: var(--flash); transition: none; }
+.pct small { font-size: 40px; font-weight: 500; color: var(--text-2); margin-left: 2px; }
+.eta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.eta-main { font-size: 24px; color: var(--text-1); }
+.eta-main.alert { font-weight: 700; }
+.eta-sub { color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar { height: 14px; background: var(--track); border-radius: 7px; overflow: hidden; }
+.bar > div { height: 100%; border-radius: 7px; width: 0; transition: width 0.6s; }
+.sev-good { background: var(--good); }
+.sev-warning { background: var(--warning); }
+.sev-critical { background: var(--critical); }
+.hits { color: var(--text-1); }
+.icon-alert { display: inline-block; width: 14px; height: 14px; border-radius: 3px; background: var(--critical); margin-right: 8px; vertical-align: -1px; }
+
+/* ── 중앙: 토큰 burn / 유휴 ─────────────────── */
+.center { display: flex; flex-direction: column; min-width: 0; }
+.center-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.panel { position: relative; }
+.panel-head { display: flex; gap: 24px; align-items: center; height: 28px; }
+.key { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); }
+.key i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+.chart { display: block; width: 100%; }
+.chart text { fill: var(--text-3); font-size: 20px; font-family: inherit; }
+.axis { display: flex; justify-content: space-between; color: var(--text-3); padding-right: 64px; }
+
+.idle-view { display: none; flex-direction: column; gap: 22px; padding-top: 12px; }
+body.idle .burn-view { display: none; }
+body.idle .idle-view { display: flex; }
+.idle-last { font-size: 44px; font-weight: 600; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.tile { border-top: 1px solid var(--grid); padding-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.tile .v { font-size: 40px; font-weight: 600; }
+
+/* ── 우: 세션·수집 상태 ─────────────────────── */
+.side { display: flex; flex-direction: column; gap: 10px; }
+.model { font-size: 34px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chips { display: flex; gap: 10px; color: var(--text-2); }
+.chips span { border: 1px solid var(--baseline); border-radius: 6px; padding: 1px 10px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+.stat .v { font-size: 34px; font-weight: 600; }
+.health { margin-top: auto; display: flex; flex-direction: column; gap: 2px; }
+.dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; background: var(--idle-dot); }
+.dot.live { background: var(--good); }
+.dot.recent { background: var(--warning); }
+.dot.missing { background: var(--critical); }
+
+/* ── 연결 끊김 ─────────────────────────────── */
+.offline {
+  display: none; position: absolute; left: 0; right: 0; top: 0; height: 44px;
+  background: #3a1514; color: var(--text-1); font-size: 22px;
+  align-items: center; justify-content: center; z-index: 5;
+}
+body.offline .offline { display: flex; }

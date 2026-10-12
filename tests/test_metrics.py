@@ -1,0 +1,86 @@
+"""ETA·burn 계산."""
+import tempfile
+import unittest
+from pathlib import Path
+
+from usage_monitor import db, metrics
+
+R5 = 1_800_000_000          # 5h 창 리셋 시각
+START5 = R5 - 5 * 3600
+
+
+class LimitStateTest(unittest.TestCase):
+    def setUp(self):
+        self.conn = db.connect(Path(tempfile.mkdtemp()) / "t.db")
+
+    def obs(self, ts, pct, session="s", source="statusline", window="5h", resets_at=R5):
+        db.insert_observation(self.conn, ts, "PC1", session, source, window, pct, resets_at)
+
+    def test_trend_when_enough_recent_observations(self):
+        now = START5 + 3600
+        for i, pct in enumerate((10, 12, 14, 16)):           # 10분에 2%p → 시간당 12%p
+            self.obs(now - 1800 + i * 600, pct)
+        s = metrics.limit_state(self.conn, "5h", now)
+        self.assertEqual(s["method"], "trend")
+        self.assertAlmostEqual(s["rate_pct_per_hour"], 12.0, places=3)
+        self.assertEqual(s["verdict"], "safe")               # 남은 84%p / 12 = 7h > 리셋까지 4h
+
+    def test_window_average_when_values_flat(self):
+        now = START5 + 2 * 3600
+        for i in range(5):
+            self.obs(now - 1200 + i * 60, 40)                 # 변화 없음 → 기울기 0
+        s = metrics.limit_state(self.conn, "5h", now)
+        self.assertEqual(s["method"], "window_avg")
+        t_last = now - 1200 + 240
+        self.assertAlmostEqual(s["rate_pct_per_hour"], 40 / ((t_last - START5) / 3600), places=6)
+        self.assertEqual(s["last_obs_ts"], t_last)
+
+    def test_window_average_when_single_old_observation(self):
+        now = START5 + 4 * 3600
+        self.obs(START5 + 3600, 60)                           # 1시간에 60% → 남은 40%는 40분 뒤
+        s = metrics.limit_state(self.conn, "5h", now)
+        self.assertEqual(s["method"], "window_avg")
+        self.assertEqual(s["verdict"], "exhaust_before_reset")
+        self.assertEqual(s["eta_ts"], START5 + 3600 + 2400)
+
+    def test_running_max_ignores_late_lower_value(self):
+        now = START5 + 3600
+        self.obs(now - 300, 30, session="new")
+        self.obs(now - 60, 25, session="old")                 # 오래된 세션이 늦게 보낸 낮은 값
+        s = metrics.limit_state(self.conn, "5h", now)
+        self.assertEqual(s["pct"], 30)
+        self.assertEqual(s["last_obs_ts"], now - 60)
+
+    def test_no_usage_and_reset_and_exhausted(self):
+        self.obs(START5 + 60, 0)
+        self.assertEqual(metrics.limit_state(self.conn, "5h", START5 + 120)["verdict"], "no_usage")
+        self.assertEqual(metrics.limit_state(self.conn, "5h", R5 + 1)["verdict"], "reset")
+        self.obs(START5 + 600, 100)
+        self.assertEqual(metrics.limit_state(self.conn, "5h", START5 + 700)["verdict"], "exhausted")
+
+    def test_seven_day_uses_week_length(self):
+        r7 = R5 + 3 * 86400
+        self.obs(r7 - 4 * 86400, 16, window="7d", resets_at=r7)   # 창 시작 후 3일에 16%
+        s = metrics.limit_state(self.conn, "7d", r7 - 4 * 86400 + 60)
+        self.assertEqual(s["method"], "window_avg")
+        self.assertAlmostEqual(s["rate_pct_per_hour"], 16 / 72, places=6)
+
+
+class BurnTest(unittest.TestCase):
+    def test_minute_buckets_sum_all_hosts(self):
+        conn = db.connect(Path(tempfile.mkdtemp()) / "t.db")
+        now = 1_800_000_000 + 30
+        base = dict(client=None, session_id="s", model="m", effort=None, speed=None, query_source=None,
+                    cost_micros_est=1, duration_ms=1, raw_json="{}")
+        for rid, ts, host, toks in (("a", now - 10, "PC1", (1, 2, 3, 4)), ("b", now - 5, "PC2", (10, 20, 30, 40)),
+                                    ("c", now - 120, "PC1", (5, 5, 5, 5))):
+            db.upsert_request(conn, dict(base, request_id=rid, ts=ts * 1000, host=host, input_tokens=toks[0],
+                                         output_tokens=toks[1], cache_read=toks[2], cache_creation=toks[3]))
+        b = metrics.burn(conn, now)
+        self.assertEqual(b["series"]["output"][-1], 22)
+        self.assertEqual(b["series"]["input"][-3], 5)
+        self.assertEqual(len(b["series"]["cache_read"]), 60)
+
+
+if __name__ == "__main__":
+    unittest.main()

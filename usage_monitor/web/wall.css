@@ -1,0 +1,130 @@
+/* 배경화면용 레이아웃. 치수는 모두 rem이라 해상도에 비례한다.
+   가로형(기본): 키오스크와 같은 3열 띠(96rem × 24rem, 4:1)를 화면 가운데에 두고 위아래를 비운다.
+                 1920×1080에서는 1rem = 20px, 띠가 1920×480이고 위아래 300px씩 남는다.
+                 4:1보다 넓은 화면에서는 띠 높이를 화면 높이에 맞추고 좌우를 비운다.
+   세로형(1:1 이하): 한도, 차트, 세션을 위에서 아래로 1열. 화면 전체를 쓴다. */
+
+html { font-size: min(calc(100vw / 96), calc(100vh / 24)); }
+@media (max-aspect-ratio: 1/1) { html { font-size: min(calc(100vw / 54), calc(100vh / 96)); } }
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; width: 100vw; height: 100vh; overflow: hidden;
+  background: var(--surface); color: var(--text-1);
+  font-family: system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
+  font-size: 1rem; line-height: 1.25;
+}
+
+/* inset 0 + margin auto로 가운데에 둔다. transform은 번인 방지 이동(app.js)이 쓴다 */
+.stage {
+  position: absolute; inset: 0; margin: auto;
+  width: 96rem; height: 24rem; padding: 0.8rem;
+  display: grid; gap: 0.8rem;
+  grid-template-columns: 21rem minmax(0, 1fr) 21rem;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "limits center side";
+  transition: filter 0.6s;
+}
+body.idle .stage { filter: brightness(0.6); }
+.limits { grid-area: limits; }
+.center { grid-area: center; }
+.side   { grid-area: side; }
+
+.label { font-size: 1.1rem; color: var(--text-2); }
+.muted { color: var(--text-3); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ── 한도 ───────────────────────────── */
+.limits { display: flex; flex-direction: column; justify-content: space-between; gap: 0.4rem; min-width: 0; }
+.limit { display: flex; flex-direction: column; gap: 0.3rem; }
+.limit-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.limit-body { display: flex; align-items: center; gap: 0.9rem; }
+.pct { font-size: 4.2rem; font-weight: 600; line-height: 1; min-width: 8.25rem; border-radius: 0.3rem; transition: background 0.8s; }
+.pct.flash { background: var(--flash); transition: none; }
+.pct small { font-size: 2rem; font-weight: 500; color: var(--text-2); margin-left: 0.1rem; }
+.eta { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.eta-main { font-size: 1.2rem; color: var(--text-1); }
+.eta-main.alert { font-weight: 700; }
+.eta-sub { color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar { height: 0.7rem; background: var(--track); border-radius: 0.35rem; overflow: hidden; }
+.bar > div { height: 100%; border-radius: 0.35rem; width: 0; transition: width 0.6s; }
+.sev-good { background: var(--good); }
+.sev-warning { background: var(--warning); }
+.sev-critical { background: var(--critical); }
+.hits { color: var(--text-1); }
+.icon-alert { display: inline-block; width: 0.7em; height: 0.7em; border-radius: 0.15em; background: var(--critical); margin-right: 0.45em; }
+
+/* ── 차트 / 유휴 ─────────────────── */
+.center { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.burn-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.center-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.2rem; }
+.panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.panel-head { display: flex; gap: 1.2rem; align-items: center; height: 1.4rem; }
+.key { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text-2); }
+.key i { width: 0.7rem; height: 0.7rem; border-radius: 0.15rem; display: inline-block; }
+.chart { display: block; width: 100%; flex: 1; min-height: 0; font-size: 1rem; }
+.chart text { fill: var(--text-3); font-size: 1rem; font-family: inherit; }
+.axis { display: flex; justify-content: space-between; color: var(--text-3); padding-right: 3.2rem; }
+
+.idle-view { display: none; flex-direction: column; gap: 1.1rem; padding-top: 0.6rem; flex: 1; }
+body.idle .burn-view { display: none; }
+body.idle .idle-view { display: flex; }
+.idle-last { font-size: 2.2rem; font-weight: 600; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; }
+.tile { border-top: 1px solid var(--grid); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.2rem; }
+.tile .v { font-size: 2rem; font-weight: 600; }
+
+/* ── 세션·수집 상태 ─────────────────────── */
+.side { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+.session { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.session .label, .stat .label { white-space: nowrap; }
+.model { font-size: 1.7rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chips { display: flex; gap: 0.5rem; color: var(--text-2); }
+.chips span { border: 1px solid var(--baseline); border-radius: 0.3rem; padding: 0.05rem 0.5rem; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 0.8rem; }
+.stat .v { font-size: 1.7rem; font-weight: 600; }
+.status { margin-top: auto; display: flex; flex-direction: column; gap: 0.1rem; }
+.health { display: flex; flex-direction: column; gap: 0.1rem; }
+.dot { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; margin-right: 0.5rem; background: var(--idle-dot); }
+.dot.live { background: var(--good); }
+.dot.recent { background: var(--warning); }
+.dot.missing { background: var(--critical); }
+
+/* ── 연결 끊김: 띠 바로 위에 붙인다 ───────────── */
+.offline {
+  display: none; position: absolute; left: 0; right: 0; margin: auto;
+  top: calc(50vh - 12rem - 2.2rem); width: 96rem; height: 2.2rem;
+  background: #3a1514; color: var(--text-1); font-size: 1.1rem;
+  align-items: center; justify-content: center; z-index: 5;
+}
+body.offline .offline { display: flex; }
+
+/* ── 세로형: 화면 전체에 1열 ─────────────────── */
+@media (max-aspect-ratio: 1/1) {
+  .stage {
+    width: auto; height: auto; margin: 0; padding: 3rem 3rem 5rem; gap: 2.5rem;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "limits" "center" "side";
+  }
+  .limits { justify-content: flex-start; gap: 2rem; }
+  .limit { gap: 0.8rem; }
+  .limit-head .label, .center-head .label { font-size: 1.4rem; }
+  .limit-body { gap: 1.6rem; }
+  .pct { font-size: 9rem; min-width: 17rem; }
+  .pct small { font-size: 4rem; }
+  .eta-main { font-size: 1.5rem; }
+  .eta-sub { white-space: normal; }
+  .bar { height: 1rem; }
+  .panel-head { height: 1.8rem; }
+  .side { flex-direction: row; flex-wrap: wrap; align-items: flex-end; gap: 1.5rem 2.5rem; }
+  .model { font-size: 2.2rem; }
+  .stats { display: flex; flex-wrap: wrap; gap: 1rem 2.5rem; }
+  .stat .v { font-size: 2.2rem; }
+  .status { margin-top: 0; width: 100%; }
+  .idle-view { justify-content: center; gap: 2rem; }
+  .idle-last { font-size: 3.2rem; }
+  .tiles { grid-template-columns: 1fr; }
+  .tile .v { font-size: 2.6rem; }
+  .offline { top: 0; width: auto; }
+}

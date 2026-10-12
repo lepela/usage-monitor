@@ -1,0 +1,10 @@
+# ~/.claude/usage-monitor/config.toml 로 복사해서 쓴다. 없으면 아래 기본값으로 돈다. 환경변수(USAGE_MONITOR_*)가 이 파일보다 우선한다.
+
+bind = "127.0.0.1"          # 원격 수집을 열 때 LAN/Tailscale 주소로 바꾼다
+port = 4318                 # OTEL_EXPORTER_OTLP_LOGS_ENDPOINT 와 맞춘다
+# home = "C:/Users/<사용자>/.claude/usage-monitor"   # 데이터 폴더. 기본값이 이것
+# db_path = ".../usage.db"                          # 기본: <home>/usage.db
+# spool_dir = ".../spool"                           # 기본: <home>/spool
+# default_host = "DESKTOP-XXXX"                     # host.name 없는 레코드(Desktop OTel)용. 기본: 이 PC 이름
+auth_token = ""             # 비우면 인증 없음. 넣으면 POST /v1/logs 가 Authorization: Bearer <토큰> 을 검사
+retention_days = 90
