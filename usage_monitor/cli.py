@@ -126,7 +126,20 @@ def cmd_kiosk():
 COMMANDS = {name[4:]: fn for name, fn in list(globals().items()) if name.startswith("cmd_")}
 
 
+def _fix_output_encoding():
+    """출력이 파이프·파일로 갈 때 Python은 시스템 코드페이지(cp1252 등)로 바꾸려다 한글에서 죽는다.
+    그때는 UTF-8로 내보낸다. 콘솔에 직접 쓸 때는 Windows가 유니코드로 받으므로 그대로 둔다."""
+    for stream in (sys.stdout, sys.stderr):
+        if stream is None or not hasattr(stream, "reconfigure"):      # 창 없는 실행 파일에는 출력이 없다
+            continue
+        if stream.isatty():
+            stream.reconfigure(errors="replace")
+        else:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv=None):
+    _fix_output_encoding()
     args = sys.argv[1:] if argv is None else argv
     name = args[0] if args else "run"
     if name in ("-h", "--help", "help") or name not in COMMANDS:
