@@ -28,6 +28,7 @@ Anthropic이 만들거나 보증한 프로그램이 아닙니다. Claude와 Clau
 - [제한 사항](#제한-사항)
 - [문제 해결](#문제-해결)
 - [개발](#개발)
+- [라이선스](#라이선스)
 
 ## 무엇을 보여 주는가
 
@@ -345,3 +346,13 @@ set USAGE_MONITOR_HOME=%TEMP%\usage-monitor-fake&& set USAGE_MONITOR_PORT=4319&&
 ```bash
 python scripts/fake_feed.py --url http://127.0.0.1:4319 --home %TEMP%\usage-monitor-fake
 ```
+
+## 라이선스
+
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.ko) (Creative Commons Attribution-ShareAlike 4.0 International). 전문은 [LICENSE](LICENSE)에 있습니다.
+
+© 2026 lepela
+
+- 복제, 배포, 수정, 상업적 이용을 할 수 있습니다
+- 출처를 표시하고, 라이선스 링크를 걸고, 바꾼 부분이 있으면 밝힙니다
+- 고쳐서 배포할 때는 같은 라이선스를 적용합니다
