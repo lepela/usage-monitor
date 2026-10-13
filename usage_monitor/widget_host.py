@@ -2,7 +2,7 @@
 
 수신기가 내주는 /web/widget.html 을 테두리 없는 항상-위 창에 띄운다.
 - 수신기가 응답할 때까지 "대기 중" 화면을 보여 주고 3초마다 다시 확인한다
-- 창을 끌어 옮긴 위치와 구성(s | m | l)을 ~/.claude/usage-monitor/state/widget.json 에 기억한다
+- 창을 끌어 옮긴 위치, 구성(mini | s | m | l), 투명도를 ~/.claude/usage-monitor/state/widget.json 에 기억한다
 - 창 크기는 페이지(widget.js의 SIZES)가 CSS 픽셀로 정한다. 여기서는 그 값에 모니터 배율을 곱해 맞춘다
 - × 버튼은 창을 끝내지 않고 숨긴다(트레이 메뉴에서 다시 보인다). 단독 실행일 때는 끝낸다
 
@@ -24,7 +24,9 @@ HOME = Path(os.environ.get("USAGE_MONITOR_HOME") or Path.home() / ".claude" / "u
 STATE_PATH = HOME / "state" / "widget.json"
 BASE = os.environ.get("USAGE_MONITOR_URL", "http://127.0.0.1:4318").rstrip("/")
 TITLE = "Usage Monitor"
-DEFAULTS = {"size": "m", "w": 300, "h": 192, "x": None, "y": None, "visible": True}   # w·h는 CSS 픽셀, x·y는 화면 픽셀
+DEFAULTS = {"size": "m", "w": 300, "h": 192, "x": None, "y": None, "visible": True,
+            "opacity": 100}             # w·h는 CSS 픽셀, x·y는 화면 픽셀, opacity는 불투명도 %
+OPACITY_LEVELS = (100, 85, 70, 55, 40)  # 위젯 버튼과 트레이 메뉴가 고르는 단계. widget.js와 맞춘다
 MARGIN = 16                  # 처음 뜰 때 주 모니터 작업 영역의 오른쪽 아래에서 띄우는 거리
 WAIT_HTML = (
     "<body style='margin:0;background:#1a1a19;color:#898781;font:13px system-ui,\"Malgun Gothic\";"
@@ -37,8 +39,10 @@ user32.GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
 user32.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_ssize_t]
 user32.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
 user32.MonitorFromPoint.restype = wintypes.HANDLE
+user32.SetLayeredWindowAttributes.argtypes = [wintypes.HWND, wintypes.DWORD, ctypes.c_ubyte, wintypes.DWORD]
 SWP_NOSIZE, SWP_NOMOVE, SWP_NOZORDER, SWP_NOACTIVATE = 0x1, 0x2, 0x4, 0x10
-GWL_EXSTYLE, WS_EX_TOOLWINDOW, WS_EX_APPWINDOW = -20, 0x80, 0x40000
+GWL_EXSTYLE, WS_EX_TOOLWINDOW, WS_EX_APPWINDOW, WS_EX_LAYERED = -20, 0x80, 0x40000, 0x80000
+LWA_ALPHA = 0x2
 SW_HIDE, SW_SHOWNA = 0, 8
 WM_CLOSE = 0x0010
 
@@ -107,6 +111,24 @@ def hide_from_taskbar(hwnd):
     user32.ShowWindow(hwnd, SW_SHOWNA)
 
 
+def apply_opacity(hwnd, percent):
+    """창 전체의 불투명도. 계층 창(WS_EX_LAYERED)으로 바꾸고 알파 값을 준다. 30% 아래로는 내리지 않는다."""
+    percent = max(30, min(100, int(percent)))
+    style = user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
+    user32.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED)
+    user32.SetLayeredWindowAttributes(hwnd, 0, round(255 * percent / 100), LWA_ALPHA)
+    return percent
+
+
+def set_opacity(api, state, percent):
+    """트레이 메뉴와 위젯 버튼이 함께 쓰는 진입점."""
+    state["opacity"] = max(30, min(100, int(percent)))
+    if api._hwnd:
+        apply_opacity(api._hwnd, state["opacity"])
+    save_state(state)
+    return state["opacity"]
+
+
 class Api:
     """페이지(widget.js)가 부르는 함수. 밑줄로 시작하지 않는 속성은 pywebview가 페이지에 노출하려고
     안쪽까지 훑으므로, 상태와 창 핸들은 밑줄 이름으로 둔다."""
@@ -119,6 +141,12 @@ class Api:
         if self._hwnd:
             fit_size(self._hwnd, int(w), int(h))
         save_state(self._state)
+
+    def set_opacity(self, percent):
+        return set_opacity(self, self._state, percent)
+
+    def get_state(self):
+        return {"size": self._state["size"], "opacity": self._state.get("opacity", 100)}
 
     def close(self):
         if self._on_close:
@@ -156,6 +184,7 @@ def run(window, api, state):
             x, y = default_position(hwnd, state["w"], state["h"])
         user32.SetWindowPos(hwnd, None, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE)
         fit_size(hwnd, state["w"], state["h"])
+        apply_opacity(hwnd, state.get("opacity", 100))
         if not state.get("visible", True):
             user32.ShowWindow(hwnd, SW_HIDE)
 
@@ -174,6 +203,7 @@ def create(state, on_close=None):
     window = webview.create_window(
         TITLE, html=WAIT_HTML, js_api=api, width=state["w"], height=state["h"],
         frameless=True, easy_drag=True, on_top=True, resizable=False, background_color="#1a1a19",
+        min_size=(120, 24),          # 기본값 (200, 100)이면 한 줄 구성(200×30)이 높이 100으로 잘린다
     )
     timer = [None]
 

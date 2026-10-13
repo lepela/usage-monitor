@@ -123,6 +123,12 @@ class App:
     def toggle_widget(self, *_):
         widget_host.set_visible(self.api, self.widget_state, not self.widget_state.get("visible", True))
 
+    def set_widget_opacity(self, percent):
+        def action(*_):
+            widget_host.set_opacity(self.api, self.widget_state, percent)
+            self.window.evaluate_js(f"window.syncOpacity && window.syncOpacity({percent})")   # 위젯 버튼의 표시를 맞춘다
+        return action
+
     def open_dashboard(self, *_):
         webbrowser.open(self.base + "/")
 
@@ -174,6 +180,10 @@ class App:
         menu = pystray.Menu(
             item("대시보드 열기", self.open_dashboard, default=True),
             item("위젯 보이기", self.toggle_widget, checked=lambda _: self.widget_state.get("visible", True)),
+            item("위젯 투명도", pystray.Menu(*[
+                item(f"{p}%", self.set_widget_opacity(p), radio=True,
+                     checked=lambda _, p=p: self.widget_state.get("opacity", 100) == p)
+                for p in widget_host.OPACITY_LEVELS])),
             item("키오스크 열기 (바 모니터)", self.open_kiosk),
             sep,
             item("시작할 때 키오스크 열기", self.toggle_kiosk_on_start,

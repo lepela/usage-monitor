@@ -6,12 +6,14 @@
 <link rel="stylesheet" href="/web/tokens.css">
 <link rel="stylesheet" href="/web/widget.css">
 </head>
-<!-- 바탕화면 위젯용. 구성은 body의 data-size(s | m | l)로 바꾼다. 주소의 ?size= 로도 정한다.
+<!-- 바탕화면 위젯용. 구성은 body의 data-size(mini | s | m | l)로 바꾼다. 주소의 ?size= 로도 정한다.
      요소 id는 index.html과 같고 app.js를 함께 쓴다. 작은 구성에서 안 쓰는 요소는 CSS로 숨긴다 -->
 <body class="idle" data-size="m">
 <div class="stage" id="stage">
 
   <div class="controls" id="controls">
+    <button id="btn-opacity" title="투명도">◐</button>
+    <button id="btn-mini" title="한 줄로 접기">–</button>
     <button id="btn-size" title="구성 바꾸기">◱</button>
     <button id="btn-close" title="닫기">×</button>
   </div>

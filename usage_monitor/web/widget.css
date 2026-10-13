@@ -1,4 +1,5 @@
-/* 바탕화면 위젯. 폭 300px 고정, 높이는 구성(data-size)에 따라 다르다. 치수는 widget.js의 SIZES와 맞춘다.
+/* 바탕화면 위젯. 높이는 구성(data-size)에 따라 다르다. 치수는 widget.js의 SIZES와 맞춘다.
+     mini (200×30) 한 줄: 5시간 %, 7일 %만. "–" 버튼으로 접고 편다
      s (300×132) 한도 두 줄: %·막대·리셋
      m (300×192) s + 소진 예상 문구 + 오늘 비용·요청 + 수집 상태 점
      l (300×412) m + 최근 60분 토큰 차트 + 현재 세션(모델·컨텍스트·캐시) + 수집 상태 문구
@@ -91,6 +92,19 @@ body.idle .idle-view { display: block; }
   align-items: center; justify-content: center; z-index: 5;
 }
 body.offline .offline { display: flex; }
+
+/* ── mini: 한 줄 띠. 라벨과 %만 ───────────── */
+body[data-size="mini"] .stage { padding: 0 10px; justify-content: center; }
+body[data-size="mini"] .limits { flex-direction: row; gap: 14px; align-items: baseline; }
+body[data-size="mini"] .limit { flex-direction: row; align-items: baseline; gap: 5px; }
+body[data-size="mini"] .limit-head { display: inline; }
+body[data-size="mini"] .limit-head .reset, body[data-size="mini"] .eta,
+body[data-size="mini"] .bar, body[data-size="mini"] .hits { display: none; }
+body[data-size="mini"] .limit-head .label { font-size: 12px; color: var(--text-3); }
+body[data-size="mini"] .pct { font-size: 16px; min-width: 0; }
+body[data-size="mini"] .pct small { font-size: 11px; }
+body[data-size="mini"] .controls { top: 4px; }
+body[data-size="mini"] .offline { display: none; }
 
 /* ── s: 한도만. %와 막대를 한 줄에 ─────────── */
 body[data-size="s"] .limit { display: grid; grid-template-columns: auto 1fr; grid-template-areas: "head head" "pct bar"; align-items: center; column-gap: 10px; row-gap: 2px; }
