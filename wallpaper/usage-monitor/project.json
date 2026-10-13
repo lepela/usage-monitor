@@ -11,8 +11,10 @@
 			}
 		}
 	},
-	"tags": ["Unspecified"],
-	"title": "Claude Code Usage Monitor",
+	"tags": [
+		"Unspecified"
+	],
+	"title": "Usage Monitor",
 	"type": "web",
 	"visibility": "private"
 }
