@@ -2,6 +2,8 @@
 import sqlite3
 import time
 
+from . import rollup
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS api_requests (
   request_id      TEXT PRIMARY KEY,
@@ -19,9 +21,22 @@ CREATE TABLE IF NOT EXISTS api_requests (
   cache_creation  INTEGER,
   cost_micros_est INTEGER,               -- 추정치, cost_usd_micros
   duration_ms     INTEGER,
-  raw_json        TEXT                   -- user.*·organization.id·process.owner 제거 후
+  raw_json        TEXT,                  -- user.*·organization.id·process.owner 제거 후
+  prompt_id       TEXT,                  -- 사용자 프롬프트 하나에 딸린 요청을 묶는 값(prompt.id)
+  ttft_ms         INTEGER                -- 첫 토큰까지 걸린 시간
 );
 CREATE INDEX IF NOT EXISTS idx_req_ts ON api_requests(ts);
+
+CREATE TABLE IF NOT EXISTS user_prompts (  -- OTel user_prompt 이벤트. 프롬프트 본문은 저장하지 않는다
+  prompt_id     TEXT PRIMARY KEY,
+  ts            INTEGER NOT NULL,        -- epoch ms, 프롬프트를 보낸 시각
+  host          TEXT NOT NULL,
+  client        TEXT,
+  session_id    TEXT,
+  prompt_length INTEGER,                 -- 글자 수
+  command_name  TEXT                     -- 슬래시 명령이면 그 이름
+);
+CREATE INDEX IF NOT EXISTS idx_prompt_ts ON user_prompts(ts);
 
 CREATE TABLE IF NOT EXISTS limit_observations (
   ts          INTEGER NOT NULL,          -- epoch s, 관측 시각
@@ -69,6 +84,21 @@ CREATE TABLE IF NOT EXISTS spool_offsets (
 """
 
 
+def _migrate(conn):
+    """이전 버전 DB에 새 열을 더한다. PRAGMA user_version으로 한 번만 한다."""
+    if conn.execute("PRAGMA user_version").fetchone()[0] >= 1:
+        return
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(api_requests)")}
+    for col, typ in (("prompt_id", "TEXT"), ("ttft_ms", "INTEGER")):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE api_requests ADD COLUMN {col} {typ}")
+    conn.execute("""UPDATE api_requests SET
+                      prompt_id = json_extract(raw_json, '$.attributes."prompt.id"'),
+                      ttft_ms = CAST(json_extract(raw_json, '$.attributes.ttft_ms') AS INTEGER)
+                    WHERE prompt_id IS NULL AND raw_json IS NOT NULL""")
+    conn.execute("PRAGMA user_version = 1")
+
+
 def connect(path):
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path, isolation_level=None, check_same_thread=False)
@@ -76,22 +106,37 @@ def connect(path):
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.executescript(SCHEMA)
+    _migrate(conn)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_req_prompt ON api_requests(prompt_id)")
+    rollup.ensure(conn)
     return conn
 
 
 def upsert_request(conn, r):
     """같은 request_id 재수신은 덮어쓴다(중복 없음)."""
     conn.execute(
-        """INSERT INTO api_requests VALUES
-           (:request_id,:ts,:host,:client,:session_id,:model,:effort,:speed,:query_source,
-            :input_tokens,:output_tokens,:cache_read,:cache_creation,:cost_micros_est,:duration_ms,:raw_json)
+        """INSERT INTO api_requests (request_id, ts, host, client, session_id, model, effort, speed,
+             query_source, input_tokens, output_tokens, cache_read, cache_creation, cost_micros_est, duration_ms,
+             raw_json, prompt_id, ttft_ms)
+           VALUES (:request_id,:ts,:host,:client,:session_id,:model,:effort,:speed,:query_source,
+            :input_tokens,:output_tokens,:cache_read,:cache_creation,:cost_micros_est,:duration_ms,:raw_json,
+            :prompt_id,:ttft_ms)
            ON CONFLICT(request_id) DO UPDATE SET
              ts=excluded.ts, host=excluded.host, client=excluded.client, session_id=excluded.session_id,
              model=excluded.model, effort=excluded.effort, speed=excluded.speed,
              query_source=excluded.query_source, input_tokens=excluded.input_tokens,
              output_tokens=excluded.output_tokens, cache_read=excluded.cache_read,
              cache_creation=excluded.cache_creation, cost_micros_est=excluded.cost_micros_est,
-             duration_ms=excluded.duration_ms, raw_json=excluded.raw_json""",
+             duration_ms=excluded.duration_ms, raw_json=excluded.raw_json,
+             prompt_id=excluded.prompt_id, ttft_ms=excluded.ttft_ms""",
+        {"prompt_id": None, "ttft_ms": None, **r},
+    )
+
+
+def upsert_user_prompt(conn, r):
+    conn.execute(
+        """INSERT INTO user_prompts VALUES (:prompt_id,:ts,:host,:client,:session_id,:prompt_length,:command_name)
+           ON CONFLICT(prompt_id) DO UPDATE SET ts=MIN(ts, excluded.ts)""",
         r,
     )
 
@@ -145,8 +190,10 @@ def set_offset(conn, path, file_id, offset):
 
 
 def purge_old(conn, retention_days, now=None):
-    """보관 기간이 지난 요청·관측·한도 도달 기록을 지운다. 하루 한 번 호출된다."""
+    """보관 기간이 지난 요청·관측·한도 도달 기록을 지운다. 하루 한 번 호출된다.
+    집계 표(usage_hourly·usage_daily)는 지우지 않는다."""
     cutoff_s = int((now or time.time()) - retention_days * 86400)
     conn.execute("DELETE FROM api_requests WHERE ts < ?", (cutoff_s * 1000,))
     conn.execute("DELETE FROM limit_observations WHERE ts < ?", (cutoff_s,))
     conn.execute("DELETE FROM limit_hits WHERE ts < ?", (cutoff_s * 1000,))
+    conn.execute("DELETE FROM user_prompts WHERE ts < ?", (cutoff_s * 1000,))

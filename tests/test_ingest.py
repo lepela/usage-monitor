@@ -36,7 +36,7 @@ class OtlpTest(unittest.TestCase):
 
     def test_other_events_ignored_and_429_kept(self):
         p = fx.payload([
-            fx.other_event("user_prompt", 1, prompt="<REDACTED>"),
+            fx.other_event("tool_result", 1, tool_name="Bash"),
             fx.other_event("api_error", 2, status_code=429, error="rate limited"),
             fx.other_event("api_error", 3, error="OAuth refresh token is no longer valid"),
         ])
@@ -44,6 +44,21 @@ class OtlpTest(unittest.TestCase):
         self.assertEqual([k for k, _ in rows], ["api_error", "api_error"])
         self.assertEqual(rows[0][1]["status_code"], 429)
         self.assertIsNone(rows[1][1]["status_code"])
+
+    def test_user_prompt_keeps_time_and_length_not_text(self):
+        p = fx.payload([fx.other_event("user_prompt", 1_791_000_000_000, **{
+            "prompt.id": "p1", "prompt": "비밀 프롬프트 본문", "prompt_length": 9, "command_name": "compact"})])
+        [(kind, row)] = list(otlp.parse(p, "D"))
+        self.assertEqual(kind, "user_prompt")
+        self.assertEqual((row["prompt_id"], row["ts"], row["prompt_length"], row["command_name"]),
+                         ("p1", 1_791_000_000_000, 9, "compact"))
+        self.assertNotIn("비밀", json.dumps(row, ensure_ascii=False))
+
+    def test_api_request_prompt_id_and_ttft(self):
+        rec = fx.api_request("r1", 1000)
+        rec["attributes"] += fx.attrs({"prompt.id": "p1", "ttft_ms": 812})
+        [(_, row)] = list(otlp.parse(fx.payload([rec]), "D"))
+        self.assertEqual((row["prompt_id"], row["ttft_ms"]), ("p1", 812))
 
 
 class SpoolTest(unittest.TestCase):

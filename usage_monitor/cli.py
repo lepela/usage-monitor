@@ -12,6 +12,8 @@
   receiver     수신기만 콘솔에서 실행 (개발·시험용)
   widget       위젯 창만 실행 (개발·시험용)
   kiosk        바 모니터에 키오스크 열기
+  stats        일별·차원별 통계  [--days N(기본 14, 0=전체)] [--by day|prompt|model|client|source|effort|hour|host]
+  export       집계 표를 CSV로   [--table hourly|daily|prompts] [--days N(기본 0=전체)] [--out 파일]
 """
 import subprocess
 import sys
@@ -123,6 +125,40 @@ def cmd_kiosk():
     print(kiosk.open_kiosk(f"http://127.0.0.1:{config.load().port}/")[1])
 
 
+def cmd_stats(argv):
+    import argparse
+    from . import config, stats
+    p = argparse.ArgumentParser(prog="usage-monitor stats", description="일별·차원별 사용 통계")
+    p.add_argument("--days", type=int, default=14, help="최근 N일. 0이면 전체 (기본 14)")
+    p.add_argument("--by", choices=["day", "prompt", *stats.DIMENSIONS], default="day",
+                   help="묶는 기준. prompt는 최근 프롬프트 목록 (기본 day)")
+    a = p.parse_args(argv)
+    try:
+        print(stats.render(config.load().db_path, a.by, a.days))
+    except stats.StatsError as e:
+        print(e)
+        sys.exit(1)
+
+
+def cmd_export(argv):
+    import argparse
+    from . import config, stats
+    p = argparse.ArgumentParser(prog="usage-monitor export", description="집계 표를 CSV로 내보낸다")
+    p.add_argument("--table", choices=stats.TABLES, default="hourly",
+                   help="hourly: 시간×host×client×model×effort×source 사실 표, daily: 하루 요약, "
+                        "prompts: 프롬프트별 보낸·시작·완료 시각 (기본 hourly)")
+    p.add_argument("--days", type=int, default=0, help="최근 N일. 0이면 전체 (기본 0)")
+    p.add_argument("--out", help="저장할 파일 (기본: 현재 폴더의 usage-<table>-<날짜>.csv)")
+    a = p.parse_args(argv)
+    out = Path(a.out or f"usage-{a.table}-{time.strftime('%Y%m%d')}.csv")
+    try:
+        n = stats.export(config.load().db_path, out, a.table, a.days)
+    except stats.StatsError as e:
+        print(e)
+        sys.exit(1)
+    print(f"{out.resolve()} 에 {n}줄을 썼습니다")
+
+
 COMMANDS = {name[4:]: fn for name, fn in list(globals().items()) if name.startswith("cmd_")}
 
 
@@ -145,7 +181,8 @@ def main(argv=None):
     if name in ("-h", "--help", "help") or name not in COMMANDS:
         print(__doc__.strip())
         sys.exit(0 if name in ("-h", "--help", "help") else 2)
-    COMMANDS[name]()
+    fn = COMMANDS[name]
+    fn(args[1:]) if fn.__code__.co_argcount else fn()      # 옵션을 받는 명령에만 나머지 인자를 넘긴다
 
 
 if __name__ == "__main__":

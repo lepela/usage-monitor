@@ -57,14 +57,14 @@ def _event_name(record, attrs):
 
 
 def parse(payload, default_host):
-    """페이로드에서 ('api_request', row) / ('api_error', row) 튜플을 차례로 낸다."""
+    """페이로드에서 ('api_request' | 'api_error' | 'user_prompt', row) 튜플을 차례로 낸다."""
     for rl in payload.get("resourceLogs") or []:
         resource = attrs_to_dict((rl.get("resource") or {}).get("attributes"))
         for sl in rl.get("scopeLogs") or []:
             for record in sl.get("logRecords") or []:
                 attrs = attrs_to_dict(record.get("attributes"))
                 name = _event_name(record, attrs)
-                if name not in ("api_request", "api_error"):
+                if name not in ("api_request", "api_error", "user_prompt"):
                     continue
                 host = attrs.get("host.name") or resource.get("host.name") or default_host
                 base = {
@@ -73,6 +73,11 @@ def parse(payload, default_host):
                     "client": resource.get("service.name"),
                     "session_id": attrs.get("session.id"),
                 }
+                if name == "user_prompt":         # 본문(prompt)은 받지 않는다. 길이와 명령 이름만
+                    yield name, dict(base, prompt_id=attrs.get("prompt.id"),
+                                     prompt_length=_int(attrs.get("prompt_length")),
+                                     command_name=attrs.get("command_name"))
+                    continue
                 if name == "api_error":
                     yield name, dict(base, status_code=_int(attrs.get("status_code")),
                                      error=attrs.get("error"))
@@ -94,5 +99,7 @@ def parse(payload, default_host):
                     cache_creation=_int(attrs.get("cache_creation_tokens")),
                     cost_micros_est=cost_micros,
                     duration_ms=_int(attrs.get("duration_ms")),
+                    prompt_id=attrs.get("prompt.id"),
+                    ttft_ms=_int(attrs.get("ttft_ms")),
                     raw_json=json.dumps(raw, ensure_ascii=False, separators=(",", ":")),
                 )

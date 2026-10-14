@@ -4,7 +4,7 @@
 - GET  /api/snapshot 화면 최초 로드용 전체 상태
 - GET  /stream       SSE. 변경 시 스냅샷, 10초마다 heartbeat, 30초마다 스냅샷(시간이 흐르며 바뀌는 값용)
 - GET  /             정적 대시보드(web/)
-백그라운드: 스풀 tail(0.5초), 보관 기간 정리(하루 1회)
+백그라운드: 스풀 tail(0.5초), 집계(5분, rollup.py), 보관 기간 정리(하루 1회)
 """
 import asyncio
 import gzip
@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config as config_mod
-from . import db, metrics, otlp, spool
+from . import db, metrics, otlp, rollup, spool
 from .sse import Hub
 
 log = logging.getLogger("usage-monitor")
@@ -32,6 +32,8 @@ HEARTBEAT_SEC = 10
 SNAPSHOT_REFRESH_SEC = 30
 CHANGE_DEBOUNCE_SEC = 0.3
 PURGE_EVERY_SEC = 86400
+ROLLUP_EVERY_SEC = 300
+RUN_TOUCH_SEC = 60
 
 
 class FreshStaticFiles(StaticFiles):
@@ -111,9 +113,26 @@ async def publish_loop(st):
             last_beat = now
 
 
+async def rollup_loop(st):
+    """가동 구간을 1분마다 남기고, 5분마다 최근 이틀을 다시 집계한다."""
+    run_id = rollup.start_run(st.conn)
+    last_rollup = 0.0
+    while True:
+        now = time.time()
+        try:
+            rollup.touch_run(st.conn, run_id, now)
+            if now - last_rollup >= ROLLUP_EVERY_SEC:
+                rollup.rollup(st.conn, now)
+                last_rollup = now
+        except Exception:
+            log.exception("집계 실패")
+        await asyncio.sleep(RUN_TOUCH_SEC)
+
+
 async def purge_loop(st):
     while True:
         try:
+            rollup.rollup(st.conn)                # 지우기 전에 집계를 맞춘다
             db.purge_old(st.conn, st.cfg.retention_days)
         except Exception:
             log.exception("보관 기간 정리 실패")
@@ -127,7 +146,7 @@ def create_app(cfg=None):
     async def lifespan(app):
         st = State(cfg)
         app.state.st = st
-        tasks = [asyncio.create_task(f(st)) for f in (spool_loop, publish_loop, purge_loop)]
+        tasks = [asyncio.create_task(f(st)) for f in (spool_loop, publish_loop, rollup_loop, purge_loop)]
         log.info("수신기 시작 %s:%s db=%s spool=%s", cfg.bind, cfg.port, cfg.db_path, cfg.spool_dir)
         try:
             yield
@@ -165,6 +184,10 @@ def create_app(cfg=None):
                     db.upsert_session(st.conn, row["session_id"], row["ts"] // 1000, host=row["host"],
                                       client=row["client"], model=row["model"], effort=row["effort"])
                     n += 1
+                elif kind == "user_prompt":
+                    if row["prompt_id"] and row["ts"] is not None:
+                        db.upsert_user_prompt(st.conn, row)
+                        n += 1
                 elif row.get("status_code") == 429:
                     db.insert_limit_hit(st.conn, row["ts"], row["host"], row["session_id"], row["error"])
                     n += 1
