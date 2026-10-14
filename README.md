@@ -108,14 +108,15 @@ Desktop 앱은 상태줄 스크립트를 실행하지 않습니다. 그래서 De
 
 Smart App Control이 켜져 있는지는 Windows 보안 → 앱 및 브라우저 컨트롤 → 스마트 앱 컨트롤 설정에서 봅니다. 켜져 있어도 반드시 막히지는 않습니다. Smart App Control은 서명 없는 파일을 Microsoft 쪽의 평판 판정으로 허용하기도 하고, 그 결과는 미리 알 수 없습니다.
 
-v0.1.0 인스톨러로 확인된 결과는 다음 두 건입니다(2026-10-14).
+v0.1.0 인스톨러로 확인된 결과는 다음 세 건입니다(2026-10-14).
 
-| Smart App Control | 결과 |
-|---|---|
-| 켜짐 | 경고 없이 설치되고 실행됨 |
-| 꺼짐 | "Windows의 PC 보호" 창이 뜸. "추가 정보 → 실행"으로 설치했고 트레이 아이콘이 나옴 |
+| PC | Smart App Control | 결과 |
+|---|---|---|
+| 1 | 켜짐 | 경고 없이 설치되고 실행됨 |
+| 2 | 꺼짐 | "Windows의 PC 보호" 창이 뜸. "추가 정보 → 실행"으로 설치했고 트레이 아이콘이 나옴 |
+| 3 | 켜짐 | 경고 없이 설치되고 실행됨. Claude Desktop만 있는 PC였고, 로그인한 뒤 연 세션의 토큰 기록이 들어옴 |
 
-Smart App Control이 켜진 PC에서 막힌 사례는 아직 없습니다. 확인한 PC가 한 대뿐이라 다른 PC에서도 통과한다고 볼 수는 없습니다.
+Smart App Control이 켜진 PC에서는 SmartScreen 창이 뜨지 않았습니다. Microsoft 문서에 따르면 Smart App Control이 켜져 있으면 SmartScreen의 평판 확인을 Smart App Control이 대신할 수 있고, 서명 없는 파일은 평판이 좋다고 판정될 때만 실행됩니다([SmartScreen reputation for Windows app developers](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation)). 이 판정은 파일마다 따로 내려지고 시간이 지나며 바뀔 수 있습니다. 다음 버전의 인스톨러가 같은 결과를 낸다고 볼 수는 없습니다.
 
 설치는 됐는데 트레이 아이콘이 나오지 않으면, 인스톨러는 통과하고 설치된 실행 파일이 막힌 경우일 수 있습니다. 이때도 "설치된 앱"에서 Usage Monitor를 제거한 뒤 pip 방법을 씁니다.
 
