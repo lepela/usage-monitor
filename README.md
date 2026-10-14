@@ -3,6 +3,11 @@
 Claude Code(개인 Pro/Max 구독)의 사용량과 한도를 같은 PC에서 실시간으로 보여 주는 Windows용 대시보드입니다.
 5시간·7일 한도를 얼마나 썼는지, 언제 리셋되는지, 지금 속도로 리셋 전에 막히는지를 한 화면에 냅니다.
 
+**내려받기: [UsageMonitor-0.1.0-setup.exe](https://github.com/lepela/usage-monitor/releases/download/v0.1.0/UsageMonitor-0.1.0-setup.exe)** (Windows 11용 인스톨러, 약 20MB) · [다른 버전](https://github.com/lepela/usage-monitor/releases/latest) · [설치 안내](#설치)
+
+받아서 실행하고, Claude Code 세션을 새로 열면 사용량이 나옵니다. Python은 필요 없고 관리자 권한도 묻지 않습니다.
+실행 파일에 코드 서명이 없어서 Windows가 경고를 띄우거나 실행을 막을 수 있습니다. 그때 할 일은 [Windows가 경고하거나 막을 때](#windows가-경고하거나-막을-때)에 있습니다.
+
 *A local, real-time dashboard for Claude Code usage and rate limits on Windows: tray icon, desktop widget, and a 1920×480 kiosk view. It only listens to data your own Claude Code sends to `127.0.0.1`; it never signs in to your Claude account.*
 
 Anthropic이 만들거나 보증한 프로그램이 아닙니다. Claude와 Claude Code는 Anthropic의 상표입니다.
@@ -82,18 +87,45 @@ Desktop 앱은 상태줄 스크립트를 실행하지 않습니다. 그래서 De
 
 ### 인스톨러
 
-[Releases](https://github.com/lepela/usage-monitor/releases)에서 `UsageMonitor-<버전>-setup.exe`를 받아 실행합니다. Python이 필요 없습니다.
-현재 사용자 폴더(`%LOCALAPPDATA%\Programs\UsageMonitor`)에 설치하고 관리자 권한을 쓰지 않습니다.
-설치 화면에서 "Claude Code 설정에 연결"을 고르면 연결, 자동 실행 등록, 프로그램 시작까지 합니다.
+1. [UsageMonitor-0.1.0-setup.exe](https://github.com/lepela/usage-monitor/releases/download/v0.1.0/UsageMonitor-0.1.0-setup.exe)를 받습니다. 다른 버전은 [Releases](https://github.com/lepela/usage-monitor/releases/latest)에 있습니다
+2. 받은 파일을 실행합니다. 언어를 고르고 "다음"으로 진행합니다
+3. "Claude Code 설정에 연결하고 로그인 시 자동 실행" 선택은 켜진 채로 둡니다. 이 선택이 [setup이 바꾸는 것](#setup이-바꾸는-것)의 작업을 합니다
+4. 설치가 끝나면 프로그램이 바로 뜹니다. 트레이에 아이콘이, 화면 오른쪽 아래에 위젯이 나옵니다
 
-실행 파일은 아직 코드 서명이 없습니다([코드 서명 정책](#코드-서명-정책)). 서명 전까지는 다음과 같습니다.
-
-- Windows가 "PC 보호" 경고를 띄웁니다. "추가 정보 → 실행"으로 진행합니다
-- Smart App Control이 켜진 PC에서는 실행되지 않습니다. 이 경우 아래 pip 방법을 씁니다
+설치 위치는 현재 사용자 폴더(`%LOCALAPPDATA%\Programs\UsageMonitor`)입니다. 관리자 권한을 쓰지 않고, 다른 사용자 계정에는 영향이 없습니다.
 
 설치 없이 써 보려면 같은 곳의 `UsageMonitor-<버전>-portable.zip`을 풀고 `usage-monitor.exe setup`을 실행합니다.
 
+### Windows가 경고하거나 막을 때
+
+실행 파일은 아직 코드 서명이 없습니다([코드 서명 정책](#코드-서명-정책)). 그래서 PC 설정에 따라 셋 중 하나가 일어납니다.
+
+| 보이는 것 | 원인 | 할 일 |
+|---|---|---|
+| 경고 없이 설치됨 | — | 그대로 씁니다 |
+| 파란 "Windows의 PC 보호" 창 | SmartScreen이 서명 없는 새 파일에 띄우는 경고 | "추가 정보"를 누르면 나오는 "실행"으로 진행합니다 |
+| Smart App Control이 앱을 차단했다는 알림이 뜨거나, 실행해도 아무 일이 없음 | Smart App Control이 실행을 막음 | 예외로 등록하는 방법이 없습니다. 아래 [pip](#pip) 방법으로 설치합니다 |
+
+Smart App Control이 켜져 있는지는 Windows 보안 → 앱 및 브라우저 컨트롤 → 스마트 앱 컨트롤 설정에서 봅니다. 켜져 있어도 반드시 막히지는 않습니다. Smart App Control은 서명 없는 파일을 Microsoft 쪽의 평판 판정으로 허용하기도 하고, 그 결과는 미리 알 수 없습니다. v0.1.0은 Smart App Control이 켜진 PC 한 대에서 경고 없이 설치되고 실행됐습니다. 다른 PC에서의 결과는 확인되지 않았습니다.
+
+설치는 됐는데 트레이 아이콘이 나오지 않으면, 인스톨러는 통과하고 설치된 실행 파일이 막힌 경우일 수 있습니다. 이때도 "설치된 앱"에서 Usage Monitor를 제거한 뒤 pip 방법을 씁니다.
+
+### 설치가 됐는지 확인
+
+1. 트레이에 숫자나 줄표(–)가 그려진 아이콘이 있습니다. 보이지 않으면 작업 표시줄의 `^`(숨겨진 아이콘)를 엽니다
+2. Claude Code 세션을 새로 열고 프롬프트를 한 번 보냅니다
+3. 몇 초 안에 위젯의 토큰 차트에 막대가 생깁니다
+4. 한도 %는 조금 뒤에 나옵니다. CLI에서는 첫 응답 뒤에, Desktop 앱에서는 그 턴에 `get_usage` 도구 호출이 한 번 보인 뒤에 나옵니다
+
+명령으로 확인하려면 명령 프롬프트(cmd)에서 다음을 실행합니다. OTel·statusLine이 "연결됨", 수신기가 "응답함"이면 정상입니다.
+
+```bash
+"%LOCALAPPDATA%\Programs\UsageMonitor\usage-monitor.exe" status
+```
+
 ### pip
+
+Python 3.11 이상이 있으면 이 방법을 쓸 수 있습니다. 인스톨러가 막힌 PC에서도 동작합니다. 명령 프롬프트나 PowerShell에서 두 명령을 차례로 실행합니다.
 
 ```bash
 pip install git+https://github.com/lepela/usage-monitor.git
