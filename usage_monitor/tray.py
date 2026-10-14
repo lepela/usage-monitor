@@ -178,12 +178,14 @@ class App:
     def build_icon(self):
         item, sep = pystray.MenuItem, pystray.Menu.SEPARATOR
         menu = pystray.Menu(
-            item("대시보드 열기", self.open_dashboard, default=True),
-            item("위젯 보이기", self.toggle_widget, checked=lambda _: self.widget_state.get("visible", True)),
+            # 아이콘을 누르면 기본 항목이 실행된다. 위젯을 보이고 숨긴다
+            item("위젯 보이기", self.toggle_widget, default=True,
+                 checked=lambda _: self.widget_state.get("visible", True)),
             item("위젯 투명도", pystray.Menu(*[
                 item(f"{p}%", self.set_widget_opacity(p), radio=True,
                      checked=lambda _, p=p: self.widget_state.get("opacity", 100) == p)
                 for p in widget_host.OPACITY_LEVELS])),
+            item("대시보드 열기 (브라우저)", self.open_dashboard),
             item("키오스크 열기 (바 모니터)", self.open_kiosk),
             sep,
             item("시작할 때 키오스크 열기", self.toggle_kiosk_on_start,
