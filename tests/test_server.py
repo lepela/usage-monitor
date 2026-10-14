@@ -101,6 +101,20 @@ class ServerTest(unittest.TestCase):
             "SELECT COUNT(*) FROM limit_observations WHERE window='5h'").fetchone()[0]
         self.assertEqual(n, 3)
 
+    def test_writes_cost_since_last_observation_for_hooks(self):
+        now = int(time.time())
+        self.append_spool("statusline.jsonl", fx.statusline_line(now - 5, pct5=10, r5=now + 3600, r7=now + 86400))
+        path = self.home / "state" / "since_obs.json"
+        with Receiver(self.home, obs_cost_usd=0.3) as r:
+            time.sleep(0.5)                                        # 스풀의 관측을 먼저 읽게 한다
+            r.post("/v1/logs", fx.payload([fx.api_request("req_A", now * 1000), fx.api_request("req_B", now * 1000)]))
+            rec = {}
+            for _ in range(60):
+                if path.exists() and (rec := json.loads(path.read_text(encoding="utf-8")))["requests"] == 2:
+                    break
+                time.sleep(0.05)
+        self.assertEqual(rec, {"obs_ts": now - 5, "cost_usd": 0.4, "requests": 2, "threshold_usd": 0.3})
+
     def test_auth_token_when_configured(self):
         with Receiver(self.home, auth_token="secret") as r:
             with self.assertRaises(urllib.error.HTTPError) as cm:

@@ -1,7 +1,8 @@
 """Desktop 세션용 get_usage hook 세 개가 함께 쓰는 경로·판정·기록 함수.
 
 - 관측 기록: ~/.claude/usage-monitor/spool/usage_tool.jsonl (한 줄 = get_usage 결과 하나)
-- 다음 관측 시점: 마지막 관측값(위 스풀과 statusline 스풀 중 늦은 쪽)의 사용률로 간격을 정한다
+- 다음 관측 시점: 마지막 관측값(위 스풀과 statusline 스풀 중 늦은 쪽)의 사용률로 간격을 정한다.
+  간격이 남았어도 그 관측 이후의 추정 비용이 기준을 넘으면 관측한다(수신기가 state/since_obs.json에 써 둔다)
 - 쿨다운 마커: ~/.claude/usage-monitor/state/{nudge,block}_at — 모든 세션이 공유
 - 끄기: ~/.claude/usage-monitor/disable 파일이 있으면 hook 전체가 아무것도 하지 않는다
 """
@@ -18,6 +19,7 @@ SPOOL = ROOT / "spool"
 STATE = ROOT / "state"
 USAGE_SPOOL = SPOOL / "usage_tool.jsonl"
 STATUSLINE_SPOOL = SPOOL / "statusline.jsonl"
+SINCE_OBS = STATE / "since_obs.json"
 DISABLE = ROOT / "disable"
 
 # 관측 간격. conditional(기본)은 사용률 구간별 간격, fixed는 운영 중 이상이 있을 때 쓰는 예비안
@@ -120,11 +122,26 @@ def observation_interval(limits, now):
     return TIERS[-1][2]
 
 
+def spent_over_threshold(limits):
+    """마지막 관측 이후의 추정 비용이 기준을 넘었는지. 한도 %가 오지 않는 경로(비대화형 CLI 등)로
+    많이 쓴 뒤에는 간격을 기다리지 않고 관측하기 위한 판정이다.
+    수신기가 쓴 값이 지금 아는 관측보다 오래된 관측 기준이면(수신기가 꺼져 있거나 아직 못 읽었다) 쓰지 않는다."""
+    if not limits:
+        return False
+    try:
+        rec = json.loads(SINCE_OBS.read_text(encoding="utf-8"))
+        return rec["obs_ts"] >= limits["ts"] - 1 and 0 < rec["threshold_usd"] <= rec["cost_usd"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
 def due(now):
     """관측할 때가 됐는지와 마지막 관측 이후 경과 초, 쿨다운 초."""
     limits = last_limits()
     interval = observation_interval(limits, now)
     age = now - limits["ts"] if limits else float("inf")
+    if age < interval and spent_over_threshold(limits):
+        return True, age, MIN_COOLDOWN_SEC
     return age >= interval, age, max(interval, MIN_COOLDOWN_SEC)
 
 

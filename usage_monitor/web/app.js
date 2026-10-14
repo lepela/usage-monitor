@@ -9,6 +9,7 @@ const SERIES = {
 const HEALTH_NAMES = { otel: 'OTel', statusline: 'statusline', get_usage: 'get_usage' };
 const HEALTH_TEXT = { live: '실시간', recent: '30분 내', idle: '유휴', missing: '수집 끊김 의심' };
 const HEARTBEAT_TIMEOUT_MS = 25000;
+const SINCE_OBS_SHOW_MICROS = 100000;      // 관측 뒤 추정 비용이 $0.10 이상일 때만 표시한다
 const SHIFT_EVERY_MS = 5 * 60 * 1000;
 const SHIFTS = [[0, 0], [1, 0], [2, 1], [1, 2], [0, 1], [2, 2], [1, 1], [0, 2], [2, 0]];
 
@@ -103,7 +104,11 @@ function renderLimit(el, l) {
   mainEl.classList.toggle('alert', alert);
   el.querySelector('.method').textContent = methodText(l);
   const ago = nowSec() - l.last_obs_ts;
-  el.querySelector('.obs').textContent = `관측 ${clock(l.last_obs_ts)}` + (ago >= 600 ? ` (${span(ago)} 전)` : '');
+  // 관측 뒤에 쓴 추정 비용. 한도 값이 실제보다 뒤처진 정도를 가늠하게 한다
+  const spent = l.since_obs ? l.since_obs.cost_micros_est : 0;
+  // 칸이 좁아 둘을 함께 쓰지 못한다. 비용이 있으면 경과 시간 대신 비용을 보인다
+  el.querySelector('.obs').textContent = `관측 ${clock(l.last_obs_ts)}` +
+    (spent >= SINCE_OBS_SHOW_MICROS ? ` · +${usd(spent)}` : ago >= 600 ? ` (${span(ago)} 전)` : '');
   el.querySelector('.reset').textContent = l.verdict === 'reset' ? '' :
     `리셋 ${clock(l.resets_at)} · ${span(l.resets_at - nowSec())} 남음`;
 }

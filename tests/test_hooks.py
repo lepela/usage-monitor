@@ -60,6 +60,26 @@ class HookRunTest(unittest.TestCase):
         self.put_get_usage(now - 400, 85)                      # 약 7분 전, 85% → 5분 간격
         self.assertIn("additionalContext", run("usage_prompt_nudge.py", {"session_id": "a"}, self.home))
 
+    def put_since_obs(self, obs_ts, cost_usd, threshold_usd=2.0):
+        (self.home / "state").mkdir(parents=True, exist_ok=True)
+        (self.home / "state" / "since_obs.json").write_text(json.dumps(
+            {"obs_ts": obs_ts, "cost_usd": cost_usd, "requests": 9, "threshold_usd": threshold_usd}), encoding="utf-8")
+
+    def test_spending_since_last_observation_overrides_interval(self):
+        now = int(time.time())
+        self.put_get_usage(now - 1500, 10)                     # 25분 전, 10% → 60분 간격이 남아 있다
+        self.put_since_obs(now - 1500, 1.99)
+        self.assertEqual(run("usage_prompt_nudge.py", {"session_id": "a"}, self.home), "")
+        self.put_since_obs(now - 1500, 2.0, threshold_usd=0)   # 기준 0은 끔
+        self.assertEqual(run("usage_prompt_nudge.py", {"session_id": "a"}, self.home), "")
+        self.put_since_obs(now - 3000, 9.0)                    # 더 오래된 관측 기준의 값은 쓰지 않는다
+        self.assertEqual(run("usage_prompt_nudge.py", {"session_id": "a"}, self.home), "")
+        self.put_since_obs(now - 1500, 2.0)
+        self.assertIn("additionalContext", run("usage_prompt_nudge.py", {"session_id": "a"}, self.home))
+        self.assertEqual(run("usage_prompt_nudge.py", {"session_id": "b"}, self.home), "")   # 쿨다운 5분
+        out = json.loads(run("usage_stop_guard.py", {"session_id": "a"}, self.home))
+        self.assertEqual(out["decision"], "block")
+
     def test_fixed_mode_fallback(self):
         self.put_get_usage(int(time.time()) - 700, 10)
         out = run("usage_prompt_nudge.py", {"session_id": "a"}, self.home, USAGE_MONITOR_INTERVAL_MODE="fixed")

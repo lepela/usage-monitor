@@ -28,6 +28,7 @@ class Config:
     auth_token: str = ""         # 비우면 인증 없음
     retention_days: int = 90
     spool_poll_sec: float = 0.5
+    obs_cost_usd: float = 2.0    # 마지막 한도 관측 뒤의 추정 비용이 이 값을 넘으면 간격을 기다리지 않고 관측한다. 0이면 끔
 
     def __post_init__(self):
         self.home = Path(self.home) if self.home else default_home()
@@ -44,6 +45,7 @@ ENV_KEYS = {
     "default_host": "USAGE_MONITOR_DEFAULT_HOST",
     "auth_token": "USAGE_MONITOR_AUTH_TOKEN",
     "retention_days": "USAGE_MONITOR_RETENTION_DAYS",
+    "obs_cost_usd": "USAGE_MONITOR_OBS_COST_USD",
 }
 
 
@@ -59,4 +61,6 @@ def load(path=None):
     for key in ("port", "retention_days"):
         if key in values:
             values[key] = int(values[key])
+    if "obs_cost_usd" in values:
+        values["obs_cost_usd"] = float(values["obs_cost_usd"])
     return Config(**{k: v for k, v in values.items() if k in Config.__dataclass_fields__})

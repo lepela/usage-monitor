@@ -1,6 +1,6 @@
 """UserPromptSubmit hook.
 
-Desktop 세션에서 관측할 때가 됐으면(간격은 마지막 사용률로 정한다) 이번 턴에 get_usage를 함께
+Desktop 세션에서 관측할 때가 됐으면(간격은 마지막 사용률과 그 뒤의 추정 비용으로 정한다) 이번 턴에 get_usage를 함께
 부르라는 문구를 컨텍스트에 넣는다. 유도 사이에는 모든 세션을 합쳐 쿨다운을 둔다.
 """
 import time

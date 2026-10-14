@@ -8,3 +8,4 @@ port = 4318                 # OTEL_EXPORTER_OTLP_LOGS_ENDPOINT 와 맞춘다
 # default_host = "DESKTOP-XXXX"                     # host.name 없는 레코드(Desktop OTel)용. 기본: 이 PC 이름
 auth_token = ""             # 비우면 인증 없음. 넣으면 POST /v1/logs 가 Authorization: Bearer <토큰> 을 검사
 retention_days = 90
+obs_cost_usd = 2.0          # 마지막 한도 관측 뒤의 추정 비용(USD)이 이 값을 넘으면 간격을 기다리지 않고 관측한다. 0이면 끔

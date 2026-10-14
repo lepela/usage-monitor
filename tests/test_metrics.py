@@ -66,6 +66,22 @@ class LimitStateTest(unittest.TestCase):
         self.assertAlmostEqual(s["rate_pct_per_hour"], 16 / 72, places=6)
 
 
+class SinceObservationTest(unittest.TestCase):
+    def test_counts_only_requests_after_last_observation(self):
+        conn = db.connect(Path(tempfile.mkdtemp()) / "t.db")
+        t_obs = START5 + 3600
+        self.assertIsNone(metrics.since_observation(conn))
+        db.insert_observation(conn, t_obs - 600, "PC1", "s", "get_usage", "5h", 2, R5)
+        db.insert_observation(conn, t_obs, "PC1", "s", "get_usage", "5h", 4, R5)
+        base = dict(host="PC1", client=None, session_id="s", model="m", effort=None, speed=None, query_source=None,
+                    input_tokens=1, output_tokens=1, cache_read=0, cache_creation=0, duration_ms=1, raw_json="{}")
+        for rid, ts, cost in (("a", t_obs - 10, 5_000_000), ("b", t_obs + 10, 700_000), ("c", t_obs + 20, 300_000)):
+            db.upsert_request(conn, dict(base, request_id=rid, ts=ts * 1000, cost_micros_est=cost))
+        expected = {"cost_micros_est": 1_000_000, "requests": 2}
+        self.assertEqual(metrics.since_observation(conn), {"obs_ts": t_obs, **expected})
+        self.assertEqual(metrics.limit_state(conn, "5h", t_obs + 60)["since_obs"], expected)
+
+
 class BurnTest(unittest.TestCase):
     def test_minute_buckets_sum_all_hosts(self):
         conn = db.connect(Path(tempfile.mkdtemp()) / "t.db")

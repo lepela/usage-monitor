@@ -10,6 +10,7 @@ import asyncio
 import gzip
 import json
 import logging
+import os
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -50,9 +51,29 @@ class State:
         self.hub = Hub()
         self.dirty = asyncio.Event()
         self.tailers = spool.tailers(self.conn, cfg.spool_dir, cfg.default_host)
+        self.since_obs_written = None
 
     def snapshot(self):
         return metrics.build_snapshot(self.conn)
+
+    def write_since_obs(self):
+        """hook이 읽는 state/since_obs.json. 마지막 한도 관측 뒤의 추정 비용과 관측 기준 금액을 담는다."""
+        since = metrics.since_observation(self.conn)
+        if not since:
+            return
+        body = json.dumps({"obs_ts": since["obs_ts"], "cost_usd": round(since["cost_micros_est"] / 1e6, 4),
+                           "requests": since["requests"], "threshold_usd": self.cfg.obs_cost_usd})
+        if body == self.since_obs_written:
+            return
+        path = self.cfg.home / "state" / "since_obs.json"
+        tmp = path.with_suffix(".tmp")
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp.write_text(body, encoding="utf-8")
+            os.replace(tmp, path)               # hook이 반쯤 쓰인 파일을 읽지 않게 한 번에 바꾼다
+            self.since_obs_written = body
+        except OSError as e:
+            log.warning("since_obs.json 쓰기 실패: %s", e)
 
     def mark_changed(self):
         self.dirty.set()
@@ -81,6 +102,7 @@ async def publish_loop(st):
         now = time.time()
         if st.dirty.is_set() or now - last_snapshot >= SNAPSHOT_REFRESH_SEC:
             st.dirty.clear()
+            st.write_since_obs()
             if st.hub.clients:
                 st.hub.publish("snapshot", st.snapshot())
             last_snapshot = now

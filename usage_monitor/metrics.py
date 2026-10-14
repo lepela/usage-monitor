@@ -17,6 +17,21 @@ def _slope(points):
     return sum((t - mx) * (p - my) for t, p in points) / den if den else 0.0
 
 
+def _spent_since(conn, ts):
+    """ts(초) 뒤에 들어온 요청의 추정 비용과 건수."""
+    r = conn.execute(
+        "SELECT COUNT(*) AS n, SUM(COALESCE(cost_micros_est,0)) AS cost FROM api_requests WHERE ts > ?",
+        (ts * 1000,),
+    ).fetchone()
+    return {"cost_micros_est": r["cost"] or 0, "requests": r["n"]}
+
+
+def since_observation(conn):
+    """마지막 한도 관측(5h·7d) 뒤의 추정 비용. hook이 다음 관측 시점을 정할 때 읽는다."""
+    t = conn.execute("SELECT MAX(ts) AS t FROM limit_observations WHERE window IN ('5h','7d')").fetchone()["t"]
+    return None if t is None else {"obs_ts": t, **_spent_since(conn, t)}
+
+
 def limit_state(conn, window, now):
     """한 창의 현재 값·ETA. 관측 시점 기준."""
     length = WINDOW_LEN.get(window, 7 * 86400)
@@ -41,6 +56,7 @@ def limit_state(conn, window, now):
         "window": window, "pct": pct, "resets_at": resets_at, "last_obs_ts": t_last,
         "sources": sorted({r["source"] for r in rows}), "method": None,
         "rate_pct_per_hour": None, "eta_ts": None, "verdict": None,
+        "since_obs": _spent_since(conn, t_last),     # 한도 값이 실제보다 얼마나 뒤처졌는지 가늠하는 값
     }
     if resets_at <= now:
         out["verdict"] = "reset"          # 창이 끝났다. 새 관측 전까지 현재 값을 모른다
