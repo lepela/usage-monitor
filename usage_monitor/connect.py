@@ -101,7 +101,8 @@ def default_hook_exe():
 def _load(path):
     if not path.exists():
         return {}
-    return json.loads(path.read_text(encoding="utf-8"))
+    # 메모장·PowerShell로 저장한 파일은 UTF-8 BOM으로 시작할 수 있다
+    return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
 def _save(path, data):

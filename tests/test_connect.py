@@ -1,4 +1,5 @@
 """settings.json 연결·해제. 남의 설정을 건드리지 않는지가 요점이다."""
+import codecs
 import json
 import tempfile
 import unittest
@@ -115,6 +116,12 @@ class ConnectTest(unittest.TestCase):
         self.assertEqual(c.status(self.paths)["statusline"], "ours")
         c.disconnect(self.paths)
         self.assertEqual(self.read(), {"theme": "dark"})
+
+    def test_settings_with_utf8_bom(self):
+        self.paths["settings"].write_bytes(codecs.BOM_UTF8 + json.dumps({"theme": "dark"}).encode())
+        c.connect(self.paths, python=PY)
+        self.assertEqual(self.read()["theme"], "dark")
+        self.assertFalse(self.paths["settings"].read_bytes().startswith(codecs.BOM_UTF8))   # 쓸 때는 BOM 없이
 
     def test_missing_settings_file(self):
         c.connect(self.paths, python=PY)
