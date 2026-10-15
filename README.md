@@ -34,7 +34,7 @@ Anthropic이 만들거나 보증한 프로그램이 아닙니다. Claude와 Clau
 - [제한 사항](#제한-사항)
 - [문제 해결](#문제-해결)
 - [개발](#개발)
-- [코드 서명 정책](#코드-서명-정책)
+- [Code signing policy (코드 서명 정책)](#code-signing-policy)
 - [라이선스](#라이선스)
 
 ## 무엇을 보여 주는가
@@ -99,7 +99,7 @@ Desktop 앱은 상태줄 스크립트를 실행하지 않습니다. 그래서 De
 
 ### Windows가 경고하거나 막을 때
 
-실행 파일은 아직 코드 서명이 없습니다([코드 서명 정책](#코드-서명-정책)). 그래서 PC 설정에 따라 셋 중 하나가 일어납니다.
+실행 파일은 아직 코드 서명이 없습니다([Code signing policy](#code-signing-policy)). 그래서 PC 설정에 따라 셋 중 하나가 일어납니다.
 
 | 보이는 것 | 원인 | 할 일 |
 |---|---|---|
@@ -109,15 +109,15 @@ Desktop 앱은 상태줄 스크립트를 실행하지 않습니다. 그래서 De
 
 Smart App Control이 켜져 있는지는 Windows 보안 → 앱 및 브라우저 컨트롤 → 스마트 앱 컨트롤 설정에서 봅니다. 켜져 있어도 반드시 막히지는 않습니다. Smart App Control은 서명 없는 파일을 Microsoft 쪽의 평판 판정으로 허용하기도 하고, 그 결과는 미리 알 수 없습니다.
 
-v0.1.0 인스톨러로 확인된 결과는 다음 세 건입니다(2026-10-14).
+v0.1.0 인스톨러로 확인된 결과는 다음과 같습니다.
 
 | PC | Smart App Control | 결과 |
 |---|---|---|
-| 1 | 켜짐 | 경고 없이 설치되고 실행됨 |
+| 1 | 켜짐 | 10-14: 경고 없이 설치되고 실행됨. 10-15: 같은 PC에서 설치된 `UsageMonitor.exe`가 "게시자를 검증할 수 없다"며 차단됨. 같은 폴더의 `um-hook.exe`는 계속 실행됨 |
 | 2 | 꺼짐 | "Windows의 PC 보호" 창이 뜸. "추가 정보 → 실행"으로 설치했고 트레이 아이콘이 나옴 |
-| 3 | 켜짐 | 경고 없이 설치되고 실행됨. Claude Desktop만 있는 PC였고, 로그인한 뒤 연 세션의 토큰 기록이 들어옴 |
+| 3 | 켜짐 | 10-14: 경고 없이 설치되고 실행됨. Claude Desktop만 있는 PC였고, 로그인한 뒤 연 세션의 토큰 기록이 들어옴 |
 
-Smart App Control이 켜진 PC에서는 SmartScreen 창이 뜨지 않았습니다. Microsoft 문서에 따르면 Smart App Control이 켜져 있으면 SmartScreen의 평판 확인을 Smart App Control이 대신할 수 있고, 서명 없는 파일은 평판이 좋다고 판정될 때만 실행됩니다([SmartScreen reputation for Windows app developers](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation)). 이 판정은 파일마다 따로 내려지고 시간이 지나며 바뀔 수 있습니다. 다음 버전의 인스톨러가 같은 결과를 낸다고 볼 수는 없습니다.
+Smart App Control이 켜진 PC에서는 SmartScreen 창이 뜨지 않았습니다. Microsoft 문서에 따르면 Smart App Control이 켜져 있으면 SmartScreen의 평판 확인을 Smart App Control이 대신할 수 있고, 서명 없는 파일은 평판이 좋다고 판정될 때만 실행됩니다([SmartScreen reputation for Windows app developers](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation)). 이 판정은 파일마다 따로 내려지고 시간이 지나며 바뀝니다. 1번 PC에서는 하루 전에 실행되던 파일이 다음 날 막혔습니다. **Smart App Control이 켜진 PC에서는 설치본이 언제든 막힐 수 있습니다.** 이런 PC에서 계속 쓰려면 [pip](#pip) 방법이 맞습니다. pip 설치본은 서명된 Python으로 돌기 때문에 이 판정을 받지 않습니다.
 
 설치는 됐는데 트레이 아이콘이 나오지 않으면, 인스톨러는 통과하고 설치된 실행 파일이 막힌 경우일 수 있습니다. 이때도 "설치된 앱"에서 Usage Monitor를 제거한 뒤 pip 방법을 씁니다.
 
@@ -480,16 +480,18 @@ set USAGE_MONITOR_HOME=%TEMP%\usage-monitor-fake&& set USAGE_MONITOR_PORT=4319&&
 python scripts/fake_feed.py --url http://127.0.0.1:4319 --home %TEMP%\usage-monitor-fake
 ```
 
-## 코드 서명 정책
+## Code signing policy
+
+코드 서명 정책입니다.
 
 배포하는 실행 파일과 인스톨러는 이 저장소의 소스에서 GitHub Actions(`.github/workflows/build.yml`)로만 만듭니다. 손으로 만든 실행 파일은 배포하지 않습니다.
 
-현재 상태: **서명 없음.** 오픈소스 프로젝트용 무료 코드 서명을 [SignPath Foundation](https://signpath.org/)에 신청할 예정입니다. 승인되면 이 절에 서명 제공자를 적고 릴리스를 서명본으로 바꿉니다.
+현재 상태: **서명 없음.** 오픈소스 프로젝트용 무료 코드 서명을 [SignPath Foundation](https://signpath.org/)에 신청했고(2026-10-15) 심사 중입니다. 승인되면 이 절에 서명 제공자를 적고 릴리스를 서명본으로 바꿉니다.
 
 | 역할 | 담당 |
 |---|---|
-| 커밋·리뷰 | [lepela](https://github.com/lepela) |
-| 릴리스 승인 | [lepela](https://github.com/lepela) |
+| Committers and reviewers (커밋·리뷰) | [lepela](https://github.com/lepela) |
+| Approvers (릴리스 승인) | [lepela](https://github.com/lepela) |
 
 개인 정보: 이 프로그램은 사용자나 설치·운영하는 사람이 명시적으로 요청하지 않는 한 어떤 정보도 다른 네트워크 시스템으로 보내지 않습니다. 수집 범위는 [저장하는 것과 저장하지 않는 것](#저장하는-것과-저장하지-않는-것)에 있습니다.
 
