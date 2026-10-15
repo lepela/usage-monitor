@@ -15,6 +15,7 @@
   stats        일별·차원별 통계  [--days N(기본 14, 0=전체)] [--by day|prompt|model|client|source|effort|hour|host]
   export       집계 표를 CSV로   [--table hourly|daily|prompts] [--days N(기본 0=전체)] [--out 파일]
 """
+import os
 import subprocess
 import sys
 import time
@@ -91,8 +92,19 @@ def cmd_status():
 
 
 def cmd_run():
-    from . import tray
-    tray.main()
+    # pythonw로 뜨면 콘솔이 없어 시작 중 오류가 어디에도 남지 않는다. 데이터 폴더의 app-crash.log에 남긴다
+    try:
+        from . import tray
+        tray.main()
+    except Exception:
+        import traceback
+        from . import config
+        path = config.default_home() / "app-crash.log"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(f"--- {time.strftime('%Y-%m-%d %H:%M:%S')} pid {os.getpid()} {sys.executable}\n"
+                    f"{traceback.format_exc()}\n")
+        raise
 
 
 def cmd_quit():

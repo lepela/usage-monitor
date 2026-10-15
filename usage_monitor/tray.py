@@ -11,6 +11,8 @@
 import ctypes
 import json
 import logging
+import os
+import sys
 import threading
 import time
 import urllib.request
@@ -101,6 +103,7 @@ class App:
     def __init__(self):
         self.cfg = config.load()
         receiver.setup_logging(self.cfg)
+        log.info("트레이 프로그램 시작 pid=%s %s", os.getpid(), sys.executable)
         self.base = f"http://127.0.0.1:{self.cfg.port}"
         self.settings_path = self.cfg.home / "state" / "app.json"
         self.settings = {"kiosk_on_start": False, **self._load_settings()}
