@@ -3,10 +3,16 @@
 Claude Code(개인 Pro/Max 구독)의 사용량과 한도를 같은 PC에서 실시간으로 보여 주는 Windows용 대시보드입니다.
 5시간·7일 한도를 얼마나 썼는지, 언제 리셋되는지, 지금 속도로 리셋 전에 막히는지를 한 화면에 냅니다.
 
-**내려받기: [UsageMonitor-0.1.0-setup.exe](https://github.com/lepela/usage-monitor/releases/download/v0.1.0/UsageMonitor-0.1.0-setup.exe)** (Windows 11용 인스톨러, 약 20MB) · [다른 버전](https://github.com/lepela/usage-monitor/releases/latest) · [설치 안내](#설치)
+**내려받기: [UsageMonitor-0.1.1-setup.exe](https://github.com/lepela/usage-monitor/releases/download/v0.1.1/UsageMonitor-0.1.1-setup.exe)** (Windows 11용 인스톨러, 약 20MB) · [다른 버전](https://github.com/lepela/usage-monitor/releases/latest) · [설치 안내](#설치)
 
 받아서 실행하고, Claude Code 세션을 새로 열면 사용량이 나옵니다. Python은 필요 없고 관리자 권한도 묻지 않습니다.
 실행 파일에 코드 서명이 없어서 Windows가 경고를 띄우거나 실행을 막을 수 있습니다. 그때 할 일은 [Windows가 경고하거나 막을 때](#windows가-경고하거나-막을-때)에 있습니다.
+
+Smart App Control이 켜진 PC에서는 PowerShell에 아래 한 줄을 넣는 쪽이 확실합니다. 서명된 Python으로 설치하고 실행하므로 막히지 않습니다([PowerShell 한 줄 설치](#powershell-한-줄-설치)).
+
+```bash
+powershell -c "irm https://raw.githubusercontent.com/lepela/usage-monitor/main/install.ps1 | iex"
+```
 
 *A local, real-time dashboard for Claude Code usage and rate limits on Windows: tray icon, desktop widget, and a 1920×480 kiosk view. It only listens to data your own Claude Code sends to `127.0.0.1`; it never signs in to your Claude account.*
 
@@ -88,7 +94,7 @@ Desktop 앱은 상태줄 스크립트를 실행하지 않습니다. 그래서 De
 
 ### 인스톨러
 
-1. [UsageMonitor-0.1.0-setup.exe](https://github.com/lepela/usage-monitor/releases/download/v0.1.0/UsageMonitor-0.1.0-setup.exe)를 받습니다. 다른 버전은 [Releases](https://github.com/lepela/usage-monitor/releases/latest)에 있습니다
+1. [UsageMonitor-0.1.1-setup.exe](https://github.com/lepela/usage-monitor/releases/download/v0.1.1/UsageMonitor-0.1.1-setup.exe)를 받습니다. 다른 버전은 [Releases](https://github.com/lepela/usage-monitor/releases/latest)에 있습니다
 2. 받은 파일을 실행합니다. 언어를 고르고 "다음"으로 진행합니다
 3. "Claude Code 설정에 연결하고 로그인 시 자동 실행" 선택은 켜진 채로 둡니다. 이 선택이 [setup이 바꾸는 것](#setup이-바꾸는-것)의 작업을 합니다
 4. 설치가 끝나면 프로그램이 바로 뜹니다. 트레이에 아이콘이, 화면 오른쪽 아래에 위젯이 나옵니다
@@ -133,6 +139,26 @@ Smart App Control이 켜진 PC에서는 SmartScreen 창이 뜨지 않았습니�
 ```bash
 "%LOCALAPPDATA%\Programs\UsageMonitor\usage-monitor.exe" status
 ```
+
+### PowerShell 한 줄 설치
+
+인스톨러가 막히는 PC(Smart App Control이 켜진 PC)에서 쓰는 방법입니다. 아래 [pip](#pip) 설치를 대신 해 주는 스크립트입니다.
+
+```bash
+powershell -c "irm https://raw.githubusercontent.com/lepela/usage-monitor/main/install.ps1 | iex"
+```
+
+[install.ps1](install.ps1)이 하는 일은 셋입니다. 실행 전에 내용을 열어 볼 수 있습니다.
+
+1. Python 3.11 이상을 찾습니다. 없으면 `winget`으로 python.org 배포본(Python 3.12)을 현재 사용자에게 설치합니다
+2. 최신 릴리스의 소스 압축 파일을 `pip`으로 설치합니다. git은 필요 없습니다
+3. `setup`을 실행합니다. Claude Code 설정 연결, 로그인 시 자동 실행, 트레이 프로그램 시작까지 합니다
+
+- 실행하는 것은 서명된 `python.exe`와 PyPI 배포 라이브러리뿐이라 Smart App Control의 판정을 받지 않습니다
+- `irm | iex`로 실행하면 스크립트가 파일로 저장되지 않으므로 PowerShell 실행 정책에도 걸리지 않습니다. 파일로 받아 실행하면 실행 정책이나 Smart App Control에 막힐 수 있습니다
+- 인스톨러로 설치한 Usage Monitor가 있으면 멈추고 먼저 제거하라고 안내합니다. 두 설치본이 섞이면, 나중에 인스톨러 쪽을 제거할 때 이쪽 연결까지 풀립니다
+- 설치할 버전은 환경변수 `USAGE_MONITOR_VERSION`(예: `v0.1.0`)으로, 쓸 Python은 `USAGE_MONITOR_PYTHON`으로 정할 수 있습니다
+- 끝나면 상태 확인·제거 명령을 Python 경로와 함께 보여 줍니다
 
 ### pip
 
