@@ -29,6 +29,8 @@ class Config:
     retention_days: int = 90
     spool_poll_sec: float = 0.5
     obs_cost_usd: float = 2.0    # 마지막 한도 관측 뒤의 추정 비용이 이 값을 넘으면 간격을 기다리지 않고 관측한다. 0이면 끔
+    appmeta_enabled: bool = True # 앱 세션 메타데이터로 '결정 필요'·'열어 봄'을 보강한다. 형식이 바뀌어 문제가 되면 끈다
+    appmeta_glob: str = ""       # 앱 메타데이터 파일 패턴. 비우면 appmeta.default_glob()
 
     def __post_init__(self):
         self.home = Path(self.home) if self.home else default_home()
@@ -61,6 +63,16 @@ def load(path=None):
     for key in ("port", "retention_days"):
         if key in values:
             values[key] = int(values[key])
+    if isinstance(values.get("appmeta_enabled"), str):     # "false"·"0"·"no"도 끔으로 읽는다
+        values["appmeta_enabled"] = values["appmeta_enabled"].strip().lower() not in ("false", "0", "no", "off", "")
     if "obs_cost_usd" in values:
         values["obs_cost_usd"] = float(values["obs_cost_usd"])
     return Config(**{k: v for k, v in values.items() if k in Config.__dataclass_fields__})
+
+
+def with_token(url, token):
+    """auth_token을 설정했으면 주소에 ?token= 을 붙인다(브라우저 화면·SSE는 헤더를 못 붙이므로). 없으면 그대로."""
+    if not token:
+        return url
+    from urllib.parse import urlencode
+    return url + ("&" if "?" in url else "?") + urlencode({"token": token})

@@ -1,5 +1,6 @@
 """수신기를 임시 데이터 폴더로 띄워 HTTP 경로를 시험한다. M1 완료 기준의 자동화 부분."""
 import json
+import os
 import socket
 import tempfile
 import threading
@@ -22,6 +23,7 @@ def free_port():
 
 class Receiver:
     def __init__(self, home, **kw):
+        kw.setdefault("appmeta_glob", str(Path(home) / "no-appmeta" / "*.json"))   # 실제 앱 파일을 읽지 않는다
         self.cfg = config.Config(home=home, port=free_port(), default_host="DEFAULT", spool_poll_sec=0.1, **kw)
         self.server = uvicorn.Server(uvicorn.Config(main.create_app(self.cfg), host="127.0.0.1",
                                                     port=self.cfg.port, log_level="error"))
@@ -71,6 +73,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(snap["today"]["cost_micros_est"], 400000)
         self.assertEqual(sum(snap["burn"]["series"]["output"]), 600)
         self.assertEqual(snap["mode"], "active")
+        # 앱 메타데이터 파일이 없으면(CLI 전용) 앱 정보 줄은 만들지 않는다
         self.assertEqual({h["source"] for h in snap["health"]}, {"otel"})
 
     def test_sse_pushes_spool_change_and_resumes_after_restart(self):
@@ -110,8 +113,11 @@ class ServerTest(unittest.TestCase):
             r.post("/v1/logs", fx.payload([fx.api_request("req_A", now * 1000), fx.api_request("req_B", now * 1000)]))
             rec = {}
             for _ in range(60):
-                if path.exists() and (rec := json.loads(path.read_text(encoding="utf-8")))["requests"] == 2:
-                    break
+                try:
+                    if path.exists() and (rec := json.loads(path.read_text(encoding="utf-8")))["requests"] == 2:
+                        break
+                except (OSError, ValueError):
+                    pass                                           # 수신기가 파일을 바꾸는 순간(Windows)엔 다시 읽는다
                 time.sleep(0.05)
         self.assertEqual(rec, {"obs_ts": now - 5, "cost_usd": 0.4, "requests": 2, "threshold_usd": 0.3})
 
@@ -121,6 +127,100 @@ class ServerTest(unittest.TestCase):
                 r.post("/v1/logs", fx.payload([]))
             self.assertEqual(cm.exception.code, 401)
             self.assertEqual(r.post("/v1/logs", fx.payload([]), {"Authorization": "Bearer secret"}).status, 200)
+
+    # ── 세션 상태 ──────────────────────────────────────
+    def wait_live(self, r, check, timeout=6):
+        """조건을 만족하는 스냅샷 live가 올 때까지 기다린다."""
+        live = None
+        for _ in range(int(timeout / 0.1)):
+            live = r.get_json("/api/snapshot")["live"]
+            if check(live):
+                return live
+            time.sleep(0.1)
+        self.fail(f"기다린 상태가 오지 않음: {live}")
+
+    def test_seen_endpoint(self):
+        self.append_spool("session_events.jsonl", {"ts": time.time(), "event": "Notification", "ntype": "permission_prompt",
+                                                   "session_id": "s1", "tool": "Bash"})
+        with Receiver(self.home) as r:
+            self.wait_live(r, lambda l: l["unseen"]["waiting"] == 1)
+            self.assertEqual(json.load(r.post("/api/sessions/s1/seen", {})), {"ok": True})
+            live = self.wait_live(r, lambda l: l["unseen"]["waiting"] == 0)
+            self.assertIs(live["items"][0]["seen"], True)
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                r.post("/api/sessions/nope/seen", {})
+            self.assertEqual(cm.exception.code, 404)
+
+    def test_seen_endpoint_requires_token_when_configured(self):
+        with Receiver(self.home, auth_token="secret") as r:
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                r.post("/api/sessions/s1/seen", {})
+            self.assertEqual(cm.exception.code, 401)
+
+    def test_appmeta_marks_decision(self):
+        meta_dir = self.home / "meta"
+        meta_dir.mkdir(parents=True)
+        t = time.time()
+        self.append_spool("session_events.jsonl", {"ts": t - 2, "event": "UserPromptSubmit", "session_id": "s1"})
+        self.append_spool("session_events.jsonl", {"ts": t, "event": "Stop", "session_id": "s1"})
+        (meta_dir / "local_1.json").write_text(json.dumps({
+            "sessionId": "local_1", "cliSessionId": "s1", "title": "앱 제목", "lastTurnEdgeAt": int(t * 1000),
+            "lastAssistantUuid": "u1", "postTurnSummary": {"status_category": "blocked", "needs_action": "답변 필요",
+                                                           "summarizes_uuid": "u1"}}, ensure_ascii=False), encoding="utf-8")
+        with Receiver(self.home, appmeta_glob=str(meta_dir / "local_*.json")) as r:
+            live = self.wait_live(r, lambda l: l["items"] and l["items"][0]["state"] == "decision")
+            self.assertEqual((live["items"][0]["title"], live["items"][0]["detail"]), ("앱 제목", "답변 필요"))
+            health = r.get_json("/api/snapshot")["health"]
+            self.assertIn("appmeta", {h["source"] for h in health})
+
+    def test_sessions_page_served(self):
+        with Receiver(self.home) as r:
+            body = urllib.request.urlopen(r.url("/sessions"), timeout=5).read().decode("utf-8")
+            self.assertIn('id="live-table"', body)
+
+    def test_appmeta_health_shown_when_nothing_readable(self):
+        meta_dir = self.home / "meta"
+        meta_dir.mkdir(parents=True)
+        (meta_dir / "local_1.json").write_text('{"title": "세션 ID 없는 바뀐 형식"}', encoding="utf-8")
+        with Receiver(self.home, appmeta_glob=str(meta_dir / "local_*.json")) as r:
+            for _ in range(30):
+                rows = {h["source"]: h for h in r.get_json("/api/snapshot")["health"]}
+                if "appmeta" in rows:
+                    break
+                time.sleep(0.1)
+            self.assertEqual(rows["appmeta"]["status"], "idle")
+
+    def test_full_page_served(self):
+        with Receiver(self.home) as r:
+            body = urllib.request.urlopen(r.url("/full"), timeout=5).read().decode("utf-8")
+            self.assertIn('id="live-table"', body)
+            self.assertIn('id="lim-5h"', body)
+
+    def test_read_endpoints_require_token_when_configured(self):
+        """후속 리뷰: 토큰을 설정하면 조회(스냅샷·SSE·화면)에도 토큰이 필요하다. 헤더나 ?token= 둘 다 받는다."""
+        def status(url, headers=None):
+            try:
+                with urllib.request.urlopen(urllib.request.Request(url, headers=headers or {}), timeout=5) as resp:
+                    if "/stream" in url:
+                        resp.readline()
+                    return resp.status
+            except urllib.error.HTTPError as e:
+                return e.code
+        with Receiver(self.home, auth_token="secret") as r:
+            for path in ("/api/snapshot", "/stream", "/sessions", "/full", "/"):
+                self.assertEqual(status(r.url(path)), 401, path)
+                self.assertEqual(status(r.url(path + "?token=secret")), 200, path)
+            self.assertEqual(status(r.url("/api/snapshot"), {"Authorization": "Bearer secret"}), 200)
+            self.assertEqual(status(r.url("/web/app.js")), 200)                # 데이터 없는 화면 파일은 그대로
+            req = urllib.request.Request(r.url("/api/sessions/nope/seen?token=secret"), data=b"{}", method="POST")
+            self.assertEqual(status(req.full_url) if False else self._post_status(req), 404)   # 토큰은 통과, 세션은 없음
+
+    @staticmethod
+    def _post_status(req):
+        try:
+            return urllib.request.urlopen(req, timeout=5).status
+        except urllib.error.HTTPError as e:
+            return e.code
 
     @staticmethod
     def read_event(resp):
